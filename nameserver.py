@@ -1,22 +1,39 @@
 from flask import Flask
-# import json
 from flask_restful import Resource, Api
 from pymongo import MongoClient
+import pprint
+import os
+import json
+from bson import ObjectId
 
-
-client = MongoClient(port=27017)
-db = client.index
 
 app = Flask(__name__)
 api = Api(app)
 
+uri = 'mongodb://' + os.environ['MONGODB_USERNAME'] + ':'\
+                   + os.environ['MONGODB_PASSWORD'] + '@'\
+                   + os.environ['MONGODB_HOSTNAME'] + ':27017/'
+mongo = MongoClient(uri)
+db = mongo.index
+
+
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ObjectId):
+            return str(o)
+        return json.JSONEncoder.default(self, o)
+
 
 class NameServer(Resource):
     def get(self, msg):  # msg argument is temporary
-        print(f"{msg}")
+        return pprint.pformat([element for element in db.my_collection.find()])
 
     def put(self, msg):
-        print(f"{msg}")
+        item = {
+            "text": msg
+        }
+        db.my_collection.insert_one(item)
+        return f"{item}"
 
 
 api.add_resource(NameServer, "/<string:msg>")

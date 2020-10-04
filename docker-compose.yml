@@ -1,0 +1,44 @@
+version: "3"
+
+services:
+    nameserver:
+        image: nameserver:latest
+        deploy:
+            replicas: 1
+            restart_policy:
+                condition: on-failure
+        ports:
+            - "8080:8080"
+        environment:
+            MONGODB_DATABASE: index
+            MONGODB_USERNAME: mongo_user
+            MONGODB_PASSWORD: mongo_password
+            MONGODB_HOSTNAME: mongodb
+        depends_on:
+            - mongodb
+        networks:
+            - webnet
+
+    mongodb:
+        image: mongo
+#        command: mongod --auth
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: mongo_user
+            MONGO_INITDB_ROOT_PASSWORD: mongo_password
+            MONGO_INITDB_DATABASE: index
+            MONGODB_DATA_DIR: /data/db
+            MONGODB_LOG_DIR: /dev/null
+        volumes:
+            - mongodbdata:/data/db
+#            - ./001_users.js:/docker-entrypoint-initdb.d/001_users.js:ro
+        ports:
+            - "27017:27017"
+        command: mongod
+        networks:
+            - webnet
+volumes:
+  mongodbdata:
+    driver: local
+    
+networks:
+    webnet:
