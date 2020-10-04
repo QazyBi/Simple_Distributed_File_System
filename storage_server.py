@@ -128,7 +128,7 @@ while True:
 	if command == 'initialize':
 		acknowledgement(addr, port, initialize())
 
-	elif command = 'create_file':
+	elif command == 'create_file':
 		filename = parameters[1]
 		IPs = parameters[2].split(' ')
 		data = parameters[3]
