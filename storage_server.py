@@ -18,7 +18,7 @@ def initialize():
 	main_path = '/home/ubuntu/data'
 	
 	global availabe_size
-	availabe_size = 1536 # availabe disk size on the storage server in MB
+	availabe_size = 1024 * 2 # availabe disk size on the storage server in MB
 
 	# remove the directory if it exists
 	if os.path.isdir(main_path):
@@ -76,7 +76,34 @@ def create_file(filename, IPs = [], data = None):
 	replicate the file on the remaining IPs
 	'''
 
-	return 'Done'
+	return '<DONE>'
+
+'''
+Reads the file <filename> and returns its contiant.
+Returns an error meassage as a string if the 
+'''
+def read_file(filename):
+	# handle the empty filename case
+	if filename == '':
+		return "Error: filename can't be an empty string"
+
+	# get rid of '/' at the beginning
+	if filename[0] == '/':
+		filename = filename[1:]
+
+	full_path = main_path + '/' + filename # full path in the local machine to read/write files
+
+	if os.path.exists(full_path):
+		if os.path.isdir(full_path):
+			return "Error: {} is a directory".format(filename)
+		else:
+			with open(full_path, 'r') as file:
+				ret = ''
+				for line in file:
+					ret += line
+			return ret
+	else:
+		return "Erorr: {} does not exist".format(filename)
 
 '''
 send an acknowledgement message to the target server
@@ -134,7 +161,10 @@ while True:
 		data = parameters[3]
 		acknowledgement(addr, port, create_file(filename, IPs, data))
 		
-
+	elif command == 'read_file':
+		filename = parameters[1]
+		acknowledgement(addr, port, read_file(filename))
+	
 	'''
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!TO be done later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	excute the command
