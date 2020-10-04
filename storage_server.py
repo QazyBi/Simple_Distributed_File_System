@@ -1,4 +1,32 @@
 import socket                   
+import os
+
+initialized = False
+main_path = None
+availabe_size = None
+
+'''
+Initializes the node, deletes any files if exist, and returns the 
+available size (1536 MB by default).
+'''
+def initialize():
+	global init
+	initialized = True
+
+	global main_path
+	main_path = '/home/ubuntu/data'
+	
+	global availabe_size
+	availabe_size = 1536 # availabe disk size on the storage server in MB
+
+	# remove the directory if it exists
+	if os.path.isdir(main_path):
+		os.path.rmdir(main_path)
+	# create the directory where data is stored
+	os.mkdir(main_path) 
+
+	return availabe_size
+
 
 # Create a socket object
 port = 8080                  
@@ -22,11 +50,15 @@ while True:
     command = c.recv(1024)
     command = command.decode()
 
+    if command == 'initialize':
+    	initialize()
+
+
     '''
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!TO be done later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	excute the command
 	'''
-	
+
     s.shutdown(socket.SHUT_WR)
     s.close()how to shutdown a port in linux
 	
