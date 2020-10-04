@@ -3,9 +3,16 @@ from flask_restful import Resource, Api
 from pymongo import MongoClient
 import pprint
 import os
-import json
-from bson import ObjectId
+import socket
 
+
+AVAILABLE_SIZE = 0
+BUFFER_SIZE = 1024
+PORT = "8080"
+STORAGE_1 = "10.0.15.13"
+STORAGE_2 = "10.0.15.14"
+STORAGE_3 = "10.0.15.15"
+STORAGES = [STORAGE_1, STORAGE_2, STORAGE_3]
 
 app = Flask(__name__)
 api = Api(app)
@@ -17,15 +24,24 @@ mongo = MongoClient(uri)
 db = mongo.index
 
 
-class JSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, ObjectId):
-            return str(o)
-        return json.JSONEncoder.default(self, o)
+class Initialize(Resource):
+    def get(self):
+        global AVAILABLE_SIZE
+        AVAILABLE_SIZE = 0
+        for storage in STORAGES:
+            # connect to server with socket
+            # send to socket command
+            # receive from socket output
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((storage, PORT))
+                s.send('initialize'.encode())
+                size = s.recv(BUFFER_SIZE).decode()
+                AVAILABLE_SIZE += int(size)
+        return "available size"
 
 
-class NameServer(Resource):
-    def get(self, msg):  # msg argument is temporary
+class File(Resource):
+    def get(self, msg):
         return pprint.pformat([element for element in db.my_collection.find()])
 
     def put(self, msg):
@@ -36,7 +52,18 @@ class NameServer(Resource):
         return f"{item}"
 
 
-api.add_resource(NameServer, "/<string:msg>")
+class Directory(Resource):
+    def get(self, msg):
+        return "dir"
+
+    def put(self, msg):
+        return "dir"
+
+
+api.add_resource(Initialize, "/init")
+api.add_resource(File, "/file")
+api.add_resource(Directory, "/dir")
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
