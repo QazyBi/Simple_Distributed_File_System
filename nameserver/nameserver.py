@@ -1,12 +1,13 @@
 from flask import Flask
 from flask_restful import Resource, Api, reqparse
 from pymongo import MongoClient
-# import pprint
+import pprint
 import os
 import socket
 
 
 AVAILABLE_SIZE = 0
+REPLICA_NUM = 2
 BUFFER_SIZE = 1024
 PORT = "8080"
 STORAGE_1 = "10.0.15.13"
@@ -26,11 +27,12 @@ parser = reqparse.RequestParser()
 parser.add_argument('command')
 parser.add_argument('filename')
 parser.add_argument('path')
+parser.add_argument('new_directory')
 
 parser_dir = reqparse.RequestParser()
 parser_dir.add_argument('command')
-parser_dir.add_argument('current directory')
-parser_dir.add_argument('target directory')
+parser_dir.add_argument('current_directory')
+parser_dir.add_argument('target_directory')
 
 
 def send_n_recv_message(ip, port, message):
@@ -56,7 +58,7 @@ class Initialize(Resource):
 def select_storage_servers(storages, amount):
     storage_dict = {}
     for storage in storages:
-        size = send_n_recv_message(storage, PORT, "memtest")
+        size = send_n_recv_message(storage, PORT, "disk_size")
         storage_dict[storage] = int(size)
 
     sorted_dict = {k: v for k, v in sorted(storage_dict.items(),
@@ -70,15 +72,16 @@ class File(Resource):
         command = args['command']
         path = args['path']
         filename = args['filename']
+        new_directory = args['new_directory']
 
         if command == "create":
-            selected_storages = select_storage_servers(STORAGES)
+            selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
             for storage in selected_storages:
                 send_n_recv_message(storage, PORT, "create")  # handle output
-            return {"answer": "success"}
+            return {"response": "success"}
 
         elif command == "write":
-            selected_storages = select_storage_servers(STORAGES)
+            selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
             # selected_storages = [STORAGE_1, STORAGE_2]  # used for debugging
             item = {
                 "path": path,
@@ -86,8 +89,26 @@ class File(Resource):
                 "storages": selected_storages
             }
             db.my_collection.insert_one(item)
+            response = {
+                "ip": selected_storages,
+                "port": PORT,
+                "new_filename": filename
+            }
+            return response
         elif command == "read":
-            pass
+            query = {
+                "path": path,
+                "filename": filename
+            }
+            storages = []
+            for element in db.my_collection.find(query):
+                try:
+                    storages.append(element['storages'])
+                except Exception:
+                    pass
+
+            return {"ip": storages, "port": PORT}
+
         elif command == "info":
             pass
         elif command == "copy":
@@ -111,11 +132,13 @@ class Directory(Resource):
         if command == "open":
             pass
         elif command == "read":
-            pass
-            # db.my_collection.find({"path":{ $regex: /^\/fol/, $options: 'm'}})
-            # pprint.pformat([element for element in db.my_collection.find()])
+            query = {}
+            return pprint.pformat([element for element in db.my_collection.find(query)])
         elif command == "make":
-            pass
+            item = {
+                "path": path,
+            }
+            db.my_collection.insert_one(item)
         else:
             return {"answer": "incorrect command"}
 

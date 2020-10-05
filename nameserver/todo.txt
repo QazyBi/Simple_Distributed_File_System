@@ -10,7 +10,7 @@ TODO:
       route: nameserver:8080/file
       add command=create, filename and path inside request
 
-  - file write: POST request, client sends (filename, path) => nameserver sends (ip, port, new_filename) of available storage server, and newfilename in case such file exists
+  - file write: POST request, client sends (filename, path) => nameserver sends (ips, port, new_filename) of available storage server, and newfilename in case such file exists
       route: nameserver:8080/file
       add command=write, filename and path inside request
 
@@ -46,7 +46,7 @@ TODO:
       route: nameserver:8080/dir
       add command=read, current directory inside request
 
-  - make directory: POST request, client sends (target directory) => nameserver creates directory record and sends request to servers
+  - make directory: POST request, client sends (target directory) => nameserver creates directory record
       route: nameserver:8080/dir
       add command=make, new directory inside request
 
