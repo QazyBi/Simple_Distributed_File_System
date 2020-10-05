@@ -4,27 +4,26 @@ TODO:
       route: nameserver:8080/init
 
 
+
+
   - file create: POST request, client sends (filename, path, size) => nameserver makes request to storage server
       route: nameserver:8080/file
       add command=create, filename and path inside request
-
-  - file read: POST request, client sends (filename, path) => nameserer sends (ip, port) of available storage server
-      route: nameserver:8080/file
-      add command=read, filename and path inside request
-
-  - file delete: DELETE request, client sends (filename, path) => nameserver sends request to storage server hosting that file
-      route: nameserver:8080/file
-      add filename and path inside request
-
-  - file info: POST request, client sends (filename, path) => nameserver sends (size, storage server ip...)
-      route: nameserver:8080/file
-      add command=info, filename, path inside request
 
   - file write: POST request, client sends (filename, path) => nameserver sends (ip, port, new_filename) of available storage server, and newfilename in case such file exists
       route: nameserver:8080/file
       add command=write, filename and path inside request
 
-  - file copy: POST request, client sends (filename, path) => nameserver sends request to storage server copy command
+
+  - file read: POST request, client sends (filename, path) => nameserer sends (ip, port) of available storage server
+      route: nameserver:8080/file
+      add command=read, filename and path inside request
+
+  - file info: POST request, client sends (filename, path) => nameserver sends (size, storage server ip...)
+      route: nameserver:8080/file
+      add command=info, filename, path inside request
+
+  - file copy: POST request, client sends (filename, path, new path) => nameserver sends request to storage server copy command
       route: nameserver:8080/file
       add command=copy, filename and path inside request
 
@@ -32,8 +31,14 @@ TODO:
       route: nameserver:8080/file
       add command=move, filename, path, and new path inside request
 
+  - file delete: DELETE request, client sends (filename, path) => nameserver sends request to storage server hosting that file
+      route: nameserver:8080/file
+      add filename and path inside request
 
-  - open directory: POST request, client sends (current directory, new directory) => nameserver updates client's directory tracker
+
+
+
+  - open directory: POST request, client sends (current directory, target directory) => nameserver updates client's directory tracker
       route: nameserver:8080/dir
       add command=open, filename, path, and new path inside request
 
@@ -41,10 +46,10 @@ TODO:
       route: nameserver:8080/dir
       add command=read, current directory inside request
 
-  - make directory: POST request, client sends (new directory) => nameserver creates directory record and sends request to servers
+  - make directory: POST request, client sends (target directory) => nameserver creates directory record and sends request to servers
       route: nameserver:8080/dir
       add command=make, new directory inside request
 
-  - delete directory: POSt request, client sends (directory) to delete => nameserver checks whether that dir has files if not deletes that directory
+  - delete directory: POST request, client sends (directory) to delete => nameserver checks whether that dir has files if not deletes that directory
       route: nameserver:8080/dir
       add command=delete, directory

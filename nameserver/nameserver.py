@@ -21,8 +21,26 @@ app = Flask(__name__)
 api = Api(app)
 mongo = MongoClient(URI)
 db = mongo.index
-# pprint.pformat([element for element in db.my_collection.find()])
-# db.my_collection.insert_one(item)
+
+parser = reqparse.RequestParser()
+parser.add_argument('command')
+parser.add_argument('filename')
+parser.add_argument('path')
+
+parser_dir = reqparse.RequestParser()
+parser_dir.add_argument('command')
+parser_dir.add_argument('current directory')
+parser_dir.add_argument('target directory')
+
+
+def send_n_recv_message(ip, port, message):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((ip, port))
+        # send message to the socket
+        s.send(message.encode())
+        # receive message from server via socket
+        answer_message = s.recv(BUFFER_SIZE).decode()
+    return answer_message
 
 
 class Initialize(Resource):
@@ -30,52 +48,79 @@ class Initialize(Resource):
         global AVAILABLE_SIZE
         AVAILABLE_SIZE = 0
         for storage in STORAGES:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                # connect to server with socket
-                s.connect((storage, PORT))
-                # send command to the socket
-                s.send('initialize'.encode())
-                # receive from socket output
-                size = s.recv(BUFFER_SIZE).decode()
-                AVAILABLE_SIZE += int(size)
+            size = send_n_recv_message(storage, PORT, "initialize")
+            AVAILABLE_SIZE += int(size)
         return "available size"
 
 
-parser = reqparse.RequestParser()
-parser.add_argument('filename')
-parser.add_argument('path')
+def select_storage_servers(storages, amount):
+    storage_dict = {}
+    for storage in storages:
+        size = send_n_recv_message(storage, PORT, "memtest")
+        storage_dict[storage] = int(size)
+
+    sorted_dict = {k: v for k, v in sorted(storage_dict.items(),
+                                           key=lambda item: item[1])}
+    return [sorted_dict[i] for i in range(amount)]
 
 
 class File(Resource):
-    def put(self):
+    def post(self):
         args = parser.parse_args()
         command = args['command']
         path = args['path']
         filename = args['filename']
 
         if command == "create":
-            pass
+            selected_storages = select_storage_servers(STORAGES)
+            for storage in selected_storages:
+                send_n_recv_message(storage, PORT, "create")  # handle output
+            return {"answer": "success"}
+
+        elif command == "write":
+            selected_storages = select_storage_servers(STORAGES)
+            # selected_storages = [STORAGE_1, STORAGE_2]  # used for debugging
+            item = {
+                "path": path,
+                "filename": filename,
+                "storages": selected_storages
+            }
+            db.my_collection.insert_one(item)
         elif command == "read":
             pass
         elif command == "info":
-            pass
-        elif command == "write":
             pass
         elif command == "copy":
             pass
         elif command == "move":
             pass
+        else:
+            return {"answer": "invalid command"}
 
     def delete(self):
         pass
 
 
 class Directory(Resource):
-    def get(self, msg):
-        return "dir"
+    def post(self):
+        args = parser.parse_args()
+        command = args['command']
+        path = args['current directory']
+        filename = args['target directory']
 
-    def put(self, msg):
-        return "dir"
+        if command == "open":
+            pass
+        elif command == "read":
+            pass
+            # db.my_collection.find({"path":{ $regex: /^\/fol/, $options: 'm'}})
+            # pprint.pformat([element for element in db.my_collection.find()])
+        elif command == "make":
+            pass
+        else:
+            return {"answer": "incorrect command"}
+
+    def delete(self):
+        return "deleted."
 
 
 api.add_resource(Initialize, "/init")
