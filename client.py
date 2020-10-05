@@ -37,7 +37,10 @@ def read_file(file):
     f = open(file, "wb")
     while True:
         conn, addr = s.accept()
-        data = conn.recv(BUFFER_SIZE)
+        stream = conn.recv(BUFFER_SIZE)
+        parameters = stream.split(SEPARATOR)
+        data = parameters[0]
+        flag = parameters[1]
         while data:
             f.write(data)
             data = conn.recv(BUFFER_SIZE)
@@ -51,16 +54,17 @@ def write_file(file):
                                              'filename': filename,
                                             'path': path})
     data = r.json()
-    ip = data['ip']
+    ip_list = data['ip']
     port = data['port']
     new_filename = data['new_filename']
     
     s = socket.socket()
-    s.connect((ip, port))
+    s.connect((ip_list[0], port))
     f = open(file, "rb")
     data = f.read(BUFFER_SIZE)
-    while data:
-        s.send(data)
+    stream = 'write' + SEPARATOR + filename + SEPARATOR + " ".join(ip_list) + SEPARATOR + data
+    while stream:
+        s.send(stream)
     f.close()
     s.close()
 
@@ -108,25 +112,24 @@ def move_file(file, new_dir):
                                             'new_dir': new_dir})
 
 
-def open_dir(cur_dir, new_dir):
+def open_dir(current_dirrectory, target_directory):
     r = requests.post(url + "/dir", params={'command': 'open',
-                                             'cur_dir': cur_dir,
-                                            'new_dir': new_dir})
+                                             'current_dirrectory': current_dirrectory,
+                                            'target_directory': target_directory})
 
 
-def read_dir(directory):
+def read_dir(target_directory):
     r = requests.post(url + "/dir", params={'command': 'read',
-                                             'directory': directory})
+                                             'target_directory': target_directory})
     data = r.json()
     print(data['files'])
 
 
-def make_dir(new_dir):
+def make_dir(target_directory):
     r = requests.post(url + "/dir", params={'command': 'make',
-                                            'new_dir': new_dir})
+                                            'target_directory': target_directory})
 
 
-def delete_dir(directory):
+def delete_dir(target_directory):
     r = requests.post(url + "/dir", params={'command': 'delete',
-                                             'directory': directory})
-
+                                             'target_directory': target_directory})
