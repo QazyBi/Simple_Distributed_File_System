@@ -80,7 +80,7 @@ def create_file(filename, IPs = [], data = None):
 
 '''
 Reads the file <filename> and returns its contiant.
-Returns an error meassage as a string if the 
+Returns an error meassage as a string if something wrong happens
 '''
 def read_file(filename):
 	# handle the empty filename case
@@ -184,6 +184,29 @@ def delete_file(filename):
 		return ("Erorr: {} does not exist".format(filename), False)
 
 '''
+returns a space-separated list of file names listed in directory <path> as a string.
+returns an error meassage as a string if something wrong happens.
+'''
+def read_dir(path):
+	# handle the empty path case
+	if path == '':
+		return ("Error: path can't be an empty string", False)
+
+	# get rid of '/' at the beginning
+	if path[0] == '/':
+		path = path[1:]
+
+	full_path = main_path + '/' + path # full path in the local machine to read/write files
+
+	if os.path.exists(full_path):
+		if os.path.isfile(full_path):
+			return ("Error: {} is a file".format(path), False)
+		else:
+			return (' '.join(os.listdir(full_path)), True)
+	else:
+		return ("Erorr: {} does not exist".format(filename), False)
+
+'''
 send an acknowledgement message to the target server
 '''
 def acknowledgement(target_IP, target_port, message):
@@ -259,6 +282,10 @@ while True:
 	elif command == 'delte_file':
 		filename = parameters[1]
 		acknowledgement(addr, port, delte_file(filename))
+
+	elif command == 'read_dir':
+		path = parameters[1]
+		acknowledgement(addr, port, read_dir(path))
 	'''
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!TO be done later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	excute the command
