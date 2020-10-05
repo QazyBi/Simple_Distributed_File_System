@@ -80,26 +80,53 @@ def file_info(file):
     data = r.json()
 
 
-def copy_file():
-    pass
+def copy_file(file, new_dir):
+    path, filename = os.path.split(file)
+    r = requests.post(url + "/file", params={'command': 'copy',
+                                             'filename': filename,
+                                            'path': path,
+                                            'new_dir': new_dir})
+    if r.status_code == 'no such directory':
+        make_dir(new_dir)
+        r = requests.post(url + "/file", params={'command': 'copy',
+                                             'filename': filename,
+                                            'path': path,
+                                            'new_dir': new_dir})
 
 
-def move_file():
-    pass
+def move_file(file, new_dir):
+    path, filename = os.path.split(file)
+    r = requests.post(url + "/file", params={'command': 'move',
+                                             'filename': filename,
+                                            'path': path,
+                                            'new_dir': new_dir})
+    if r.status_code == 'no such directory':
+        make_dir(new_dir)
+        r = requests.post(url + "/file", params={'command': 'move',
+                                             'filename': filename,
+                                            'path': path,
+                                            'new_dir': new_dir})
 
 
-def open_dir():
-    pass
+def open_dir(cur_dir, new_dir):
+    r = requests.post(url + "/dir", params={'command': 'open',
+                                             'cur_dir': cur_dir,
+                                            'new_dir': new_dir})
 
 
-def read_dir():
-    pass
+def read_dir(directory):
+    r = requests.post(url + "/dir", params={'command': 'read',
+                                             'directory': directory})
+    data = r.json()
+    print(data['files'])
 
 
-def make_dir():
-    pass
+def make_dir(new_dir):
+    r = requests.post(url + "/dir", params={'command': 'make',
+                                            'new_dir': new_dir})
 
 
-def delete_dir():
-    pass
+def delete_dir(directory):
+    r = requests.post(url + "/dir", params={'command': 'delete',
+                                             'directory': directory})
 
