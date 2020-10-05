@@ -1,5 +1,6 @@
 import socket                   
 import os
+import shutil
 
 initialized = False
 main_path = None
@@ -207,6 +208,61 @@ def read_dir(path):
 		return ("Erorr: {} does not exist".format(filename), False)
 
 '''
+deletes the given path directory
+returns an error meassage as a string if something wrong happens.
+'''
+def delete_dir(path, permission = False):
+	# handle the empty path case
+	if path == '':
+		return ("Error: path can't be an empty string", False)
+
+	# get rid of '/' at the beginning
+	if path[0] == '/':
+		path = path[1:]
+
+	full_path = main_path + '/' + path # full path in the local machine to read/write files
+
+	if os.path.exists(full_path):
+		if os.path.isfile(full_path):
+			return ("Error: {} is a file".format(path), False)
+		else:
+			# return an error if the folder isn't empty and no permission given 
+			size, _ = disk_size(full_path)
+			if size != 0 and permission == False:
+				return ("Error: permission need because {} contains files".format(path), False)
+
+			shutil.rmtree(full_path)
+			return ('<DONE>', True)
+	else:
+		return ("Erorr: {} does not exist".format(filename), False)
+
+'''
+return the availbe disk size
+'''
+def disk_size(directory):
+    """Returns the `directory` size in bytes."""
+    total = 0
+    try:
+        # print("[+] Getting the size of", directory)
+        for entry in os.scandir(directory):
+            if entry.is_file():
+                # if it's a file, use stat() function
+                total += entry.stat().st_size
+            elif entry.is_dir():
+                # if it's a directory, recursively call this function
+                total += get_directory_size(entry.path)
+    except NotADirectoryError:
+        # if `directory` isn't a directory, get the file size then
+        return os.path.getsize(directory)
+    except PermissionError:
+        # if for whatever reason we can't open the folder, return 0
+        return 0
+    return total
+
+
+
+
+'''
 send an acknowledgement message to the target server
 '''
 def acknowledgement(target_IP, target_port, message):
@@ -220,6 +276,7 @@ def acknowledgement(target_IP, target_port, message):
 	local_s.connect((target_IP, target_port))
 
 	# merge message using SEPARATOR
+	message[1] = str(message[1])
 	message = SEPARATOR.join(message)
 
 	# send acknowledgement message
@@ -279,17 +336,28 @@ while True:
 		target_filename = parameters[2]
 		acknowledgement(addr, port, copy_file(filename, target_filename))
 
-	elif command == 'delete_file':
+	elif command == 'move_file':
+		filename = parameters[1]
+		target_filename = parameters[2]
+		acknowledgement(addr, port, move_file(filename, target_filename))
+
+	elif command == 'delte_file':
 		filename = parameters[1]
 		acknowledgement(addr, port, delte_file(filename))
 
 	elif command == 'read_dir':
 		path = parameters[1]
 		acknowledgement(addr, port, read_dir(path))
-	'''
-	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!TO be done later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	excute the command
-	'''
+	
+	elif command == 'delete_dir':
+		path = parameters[1]
+		acknowledgement(addr, port, delete_dir(path))
+
+	elif command == 'disk_size':
+		acknowledgement(addr, port, disk_size())
+
+	else:
+		acknowledgement(addr, port, ('Error: no such a command!'))
 
 	s.shutdown(socket.SHUT_WR)
 	s.close()
