@@ -279,7 +279,7 @@ while True:
 		target_filename = parameters[2]
 		acknowledgement(addr, port, copy_file(filename, target_filename))
 
-	elif command == 'delte_file':
+	elif command == 'delete_file':
 		filename = parameters[1]
 		acknowledgement(addr, port, delte_file(filename))
 
