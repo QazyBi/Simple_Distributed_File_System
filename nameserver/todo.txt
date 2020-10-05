@@ -38,11 +38,11 @@ TODO:
 
 
 
-  - open directory: POST request, client sends (current directory, target directory) => nameserver updates client's directory tracker
+  - open directory: POST request, client sends (target directory) => nameserver updates client's directory tracker
       route: nameserver:8080/dir
       add command=open, filename, path, and new path inside request
 
-  - read directory: POST request, client sends (current directory) => nameserver returns all files in current directory
+  - read directory: POST request, client sends (target directory) => nameserver returns all files in current directory
       route: nameserver:8080/dir
       add command=read, current directory inside request
 

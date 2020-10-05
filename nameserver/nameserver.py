@@ -10,8 +10,11 @@ import datetime
 AVAILABLE_SIZE = 0
 REPLICA_NUM = 2
 BUFFER_SIZE = 1024
-PORT = "8080"
 SEPARATOR = "<SEPARATOR>"
+
+CURRENT_DIR = "/var/storage/"
+
+PORT = "8080"
 STORAGE_1 = "10.0.15.13"
 STORAGE_2 = "10.0.15.14"
 STORAGE_3 = "10.0.15.15"
@@ -48,16 +51,6 @@ def send_n_recv_message(ip, port, message):
     return answer_message
 
 
-class Initialize(Resource):
-    def get(self):
-        global AVAILABLE_SIZE
-        AVAILABLE_SIZE = 0
-        for storage in STORAGES:
-            size = send_n_recv_message(storage, PORT, "initialize")
-            AVAILABLE_SIZE += int(size)
-        return "available size"
-
-
 def select_storage_servers(storages, amount):
     storage_dict = {}
     for storage in storages:
@@ -81,6 +74,16 @@ def request_server(command, path, filename, new_directory):
     return server_response
 
 
+class Initialize(Resource):
+    def get(self):
+        global AVAILABLE_SIZE
+        AVAILABLE_SIZE = 0
+        for storage in STORAGES:
+            size = send_n_recv_message(storage, PORT, "initialize")
+            AVAILABLE_SIZE += int(size)
+        return "available size"
+
+
 class File(Resource):
     def post(self):
         args = parser.parse_args()
@@ -95,7 +98,6 @@ class File(Resource):
             for storage in selected_storages:
                 send_n_recv_message(storage, PORT, "create")  # handle output
             return {"response": "success"}
-
         elif command == "write":
             selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
             # selected_storages = [STORAGE_1, STORAGE_2]  # used for debugging
@@ -167,32 +169,46 @@ class File(Resource):
                     server_response = send_n_recv_message(storage,
                                                           PORT,
                                                           message)
-            # TODO: delete a record from MONGODB
+            db.my_collection.delete_one(query)
             return server_response
         else:
             return {"answer": "invalid command"}
 
 
+def format_dir(directory):
+    return directory if directory[-1] == "/" else directory + "/"
+
+
 class Directory(Resource):
     def post(self):
+        global CURRENT_DIR
         args = parser.parse_args()
         command = args['command']
         path = args['current directory']
         target_directory = args['target directory']
 
         if command == "open":
+            CURRENT_DIR = format_dir(target_directory)
             return {"response": "done"}
         elif command == "read":
-            query = {}
-            return pprint.pformat([element for element in db.my_collection.find(query)])
+            if target_directory == "null":
+                query = {
+                    "path": {"$regex": f"^{format_dir(CURRENT_DIR)}$"}
+                }
+            else:
+                query = {
+                    "path": {"$regex": f"^{format_dir(target_directory)}$"},
+                }
+            return pprint.pformat(set([element for element in db.my_collection.find(query)]))
         elif command == "make":
             item = {
-                "path": path,
+                "path": format_dir(path),
+                "datetime": datetime.datetime.now(),
             }
             db.my_collection.insert_one(item)
         elif command == "delete":
             query = {
-                "path": path,
+                "path": {"$regex": f"^{format_dir(target_directory)}"}
             }
             for element in db.my_collection.find(query):
                 for storage in element['storages']:
@@ -200,6 +216,7 @@ class Directory(Resource):
                     server_response = send_n_recv_message(storage,
                                                           PORT,
                                                           message)
+            db.my_collection.delete_one(query)
             return server_response
         else:
             return {"answer": "incorrect command"}
