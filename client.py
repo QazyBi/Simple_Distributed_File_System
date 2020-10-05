@@ -12,7 +12,7 @@ url = "http://" + namenode_IP + ":" + str(port)
 def initialize():
     r = requests.get(url + "/init")
     data = r.json()
-    print(data['size'])
+    print("Available size{}".format(data['size']))
 
 
 def create_file(file):
@@ -20,6 +20,8 @@ def create_file(file):
     r = requests.post(url + "/file", params={'command': 'create',
                                              'filename': filename,
                                             'path': path})
+    data = r.json()
+    print(data['response'])
 
     
 def read_file(file):
@@ -28,8 +30,9 @@ def read_file(file):
                                              'filename': filename,
                                             'path': path})
     data = r.json()
-    ip = data['ip']
+    ip_list = data['ip']
     port = data['port']
+    ip = ip_list[0]
     
     s = socket.socket()
     s.bind((ip, port))
@@ -37,8 +40,11 @@ def read_file(file):
     f = open(file, "wb")
     while True:
         conn, addr = s.accept()
-        stream = conn.recv(BUFFER_SIZE)
-        parameters = stream.split(SEPARATOR)
+        outcoming_stream = 'read' + SEPARATOR + filename
+        while outcoming_stream:
+            conn.send(outcoming_stream)
+        incoming_stream = conn.recv(BUFFER_SIZE)
+        parameters = incoming_stream.split(SEPARATOR)
         data = parameters[0]
         flag = parameters[1]
         while data:
@@ -50,9 +56,11 @@ def read_file(file):
 
 def write_file(file):
     path, filename = os.path.split(file)
+    size = os.stat('somefile.txt').st_size
     r = requests.post(url + "/file", params={'command': 'write',
                                              'filename': filename,
-                                            'path': path})
+                                            'path': path,
+                                            'size': size})
     data = r.json()
     ip_list = data['ip']
     port = data['port']
@@ -82,6 +90,13 @@ def file_info(file):
                                              'filename': filename,
                                             'path': path})
     data = r.json()
+    size = data['size']
+    storages = data['storages']
+    datetime = data['datetime']
+    print("File size {}\n".format(size))
+    print("Time {}\n".format(datetime))
+    print("Storages ")
+    print(storages)
 
 
 def copy_file(file, new_dir):
@@ -133,3 +148,4 @@ def make_dir(target_directory):
 def delete_dir(target_directory):
     r = requests.post(url + "/dir", params={'command': 'delete',
                                              'target_directory': target_directory})
+
