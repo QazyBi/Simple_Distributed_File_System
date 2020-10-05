@@ -160,7 +160,29 @@ def move_file(filename, target_filename):
 	# delete filename
 	return delete_file(filename)
 
-	
+'''
+delete a file called <filename>
+'''
+def delete_file(filename):
+	# handle the empty filename case
+	if filename == '':
+		return ("Error: filename can't be an empty string", False)
+
+	# get rid of '/' at the beginning
+	if filename[0] == '/':
+		filename = filename[1:]
+
+	full_path = main_path + '/' + filename # full path in the local machine to read/write files
+
+	if os.path.exists(full_path):
+		if os.path.isdir(full_path):
+			return ("Error: {} is a directory".format(filename), False)
+		else:
+			os.remove(full_path)
+			return ('<DONE>', True)
+	else:
+		return ("Erorr: {} does not exist".format(filename), False)
+
 '''
 send an acknowledgement message to the target server
 '''
@@ -173,6 +195,9 @@ def acknowledgement(target_IP, target_port, message):
 
 	# coonecnt to the target server
 	local_s.connect((target_IP, target_port))
+
+	# merge message using SEPARATOR
+	message = SEPARATOR.join(message)
 
 	# send acknowledgement message
 	local_s.sendall(message.encode())
@@ -231,6 +256,9 @@ while True:
 		target_filename = parameters[2]
 		acknowledgement(addr, port, copy_file(filename, target_filename))
 
+	elif command == 'delte_file':
+		filename = parameters[1]
+		acknowledgement(addr, port, delte_file(filename))
 	'''
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!TO be done later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	excute the command
