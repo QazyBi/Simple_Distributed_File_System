@@ -133,6 +133,35 @@ def copy_file(filename, target_filename):
 	return write_file(target_filename, IPs = [], data = message) 
 
 '''
+move file from <filename> to <target_filename>
+'''
+def move_file(filename, target_filename):
+	# create a file with the same name if <target_filename> doens't ends with '/'
+	splits_filename = filename.split('/')
+	splits_target_filename = target_filename.split('/')
+	if splits_target_filename[-1] == '':
+		target_filename += splits_filename[-1]
+
+	# check if they both have the same filename
+	if filename == target_filename or ('./' + target_filename) == filename or target_filename == ('./' + filename):
+		return ('Error: {} and {} have the same filename'.format(filename, target_filename), False)
+
+	message, flag = read_file(filename) # containt of <filename>
+	# if an error happend, then return it
+	if flag == False: 
+		return (message, flag)
+
+	# write the continat of <filename> to <target_filename>
+	message, flag = write_file(target_filename, IPs = [], data = message) 
+	# if an error happend, ther return it
+	if flag == False:
+		return (message, flag)
+
+	# delete filename
+	return delete_file(filename)
+
+	
+'''
 send an acknowledgement message to the target server
 '''
 def acknowledgement(target_IP, target_port, message):
@@ -201,7 +230,7 @@ while True:
 		filename = parameters[1]
 		target_filename = parameters[2]
 		acknowledgement(addr, port, copy_file(filename, target_filename))
-		
+
 	'''
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!TO be done later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	excute the command
