@@ -26,7 +26,7 @@ def initialize():
 	# create the directory where data is stored
 	os.mkdir(main_path) 
 
-	return str(availabe_size)
+	return (str(availabe_size), True)
 
 '''
 Creates a new file with the path and name <filename> on the current machine
@@ -37,7 +37,7 @@ a message with the error as a string.
 def create_file(filename, IPs = [], data = None):
 	# handle the empty filename case
 	if filename == '':
-		return "Error: filename can't be an empty string"
+		return ("Error: filename can't be an empty string", False)
 
 	# get rid of '/' at the beginning
 	if filename[0] == '/':
@@ -49,7 +49,7 @@ def create_file(filename, IPs = [], data = None):
 	if os.path.isfile(full_path): 
 		hostname = socket.gethostname()
 		local_ip = socket.gethostbyname(hostname)
-		return 'Error: file with name {} already exists in IP {}'.format(filename, local_ip)
+		return ('Error: file with name {} already exists in IP {}'.format(filename, local_ip), False)
 
 	# get the path of the directory
 	path = full_path.split('/')
@@ -76,7 +76,7 @@ def create_file(filename, IPs = [], data = None):
 	replicate the file on the remaining IPs
 	'''
 
-	return '<DONE>'
+	return ('<DONE>', True)
 
 '''
 Reads the file <filename> and returns its contiant.
@@ -85,7 +85,7 @@ Returns an error meassage as a string if the
 def read_file(filename):
 	# handle the empty filename case
 	if filename == '':
-		return "Error: filename can't be an empty string"
+		return ("Error: filename can't be an empty string", False)
 
 	# get rid of '/' at the beginning
 	if filename[0] == '/':
@@ -95,15 +95,42 @@ def read_file(filename):
 
 	if os.path.exists(full_path):
 		if os.path.isdir(full_path):
-			return "Error: {} is a directory".format(filename)
+			return ("Error: {} is a directory".format(filename), False)
 		else:
 			with open(full_path, 'r') as file:
 				ret = ''
 				for line in file:
 					ret += line
-			return ret
+			return (ret, True)
 	else:
-		return "Erorr: {} does not exist".format(filename)
+		return ("Erorr: {} does not exist".format(filename), False)
+
+'''
+Creates a new file with the path and name <filename> on the current machine
+then replicas it on the nodes with the specified IPs.
+If the procedure was done succefully, it returns True. Otherwise, it returns
+a message with the error as a string.
+'''
+def write_file(filename, IPs = [], data):
+	return create_file(filename, IPs, data)
+
+'''
+copy file from <filename> to <target_filename>
+'''
+def copy_file(filename, target_filename):
+	# create a file with the same name if <target_filename> doens't ends with '/'
+	splits_filename = filename.split('/')
+	splits_target_filename = target_filename.split('/')
+	if splits_target_filename[-1] == '':
+		target_filename += splits_filename[-1]
+
+	message, flag = read_file(filename) # containt of <filename>
+	# if an error happend, then return it
+	if flag == False: 
+		return (message, flag)
+
+	# write the continat of <filename> to <target_filename>
+	return write_file(target_filename, IPs = [], data = message) 
 
 '''
 send an acknowledgement message to the target server
@@ -158,13 +185,23 @@ while True:
 	elif command == 'create_file':
 		filename = parameters[1]
 		IPs = parameters[2].split(' ')
-		data = parameters[3]
-		acknowledgement(addr, port, create_file(filename, IPs, data))
-		
+		acknowledgement(addr, port, create_file(filename, IPs))
+
 	elif command == 'read_file':
 		filename = parameters[1]
 		acknowledgement(addr, port, read_file(filename))
-	
+
+	elif command == 'write_file':
+		filename = parameters[1]
+		IPs = parameters[2].split(' ')
+		data = parameters[3]
+		acknowledgement(addr, port, write_file(filename, IPs, data))
+
+	elif command == 'copy_file':
+		filename = parameters[1]
+		target_filename = parameters[2]
+		acknowledgement(addr, port, copy_file(filename, target_filename))
+		
 	'''
 	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!TO be done later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	excute the command
