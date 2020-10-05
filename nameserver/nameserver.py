@@ -4,12 +4,14 @@ from pymongo import MongoClient
 import pprint
 import os
 import socket
+import datetime
 
 
 AVAILABLE_SIZE = 0
 REPLICA_NUM = 2
 BUFFER_SIZE = 1024
 PORT = "8080"
+SEPARATOR = "<SEPARATOR>"
 STORAGE_1 = "10.0.15.13"
 STORAGE_2 = "10.0.15.14"
 STORAGE_3 = "10.0.15.15"
@@ -27,6 +29,7 @@ parser = reqparse.RequestParser()
 parser.add_argument('command')
 parser.add_argument('filename')
 parser.add_argument('path')
+parser.add_argument('size')
 parser.add_argument('new_directory')
 
 parser_dir = reqparse.RequestParser()
@@ -66,12 +69,25 @@ def select_storage_servers(storages, amount):
     return [sorted_dict[i] for i in range(amount)]
 
 
+def request_server(command, path, filename, new_directory):
+    query = {
+        "path": path,
+        "filename": filename
+    }
+    for element in db.my_collection.find(query):
+        for storage in element['storages']:
+            message = SEPARATOR.join([command, filename, new_directory])
+            server_response = send_n_recv_message(storage, PORT, message)
+    return server_response
+
+
 class File(Resource):
     def post(self):
         args = parser.parse_args()
         command = args['command']
-        path = args['path']
         filename = args['filename']
+        path = args['path']
+        size = args['size']
         new_directory = args['new_directory']
 
         if command == "create":
@@ -83,10 +99,13 @@ class File(Resource):
         elif command == "write":
             selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
             # selected_storages = [STORAGE_1, STORAGE_2]  # used for debugging
+            request_datetime = datetime.datetime.now()
             item = {
                 "path": path,
                 "filename": filename,
-                "storages": selected_storages
+                "storages": selected_storages,
+                "datetime": request_datetime,
+                "size": size
             }
             db.my_collection.insert_one(item)
             response = {
@@ -108,18 +127,50 @@ class File(Resource):
                     pass
 
             return {"ip": storages, "port": PORT}
-
         elif command == "info":
-            pass
+            query = {
+                "path": path,
+                "filename": filename
+            }
+            for element in db.my_collection.find(query):
+                try:
+                    response = {
+                        "ip": element['storages'],
+                        "size": element['size'],
+                        "datetime": element['datetime']
+                    }
+                except Exception:
+                    response = {
+                        "response": "file not found"
+                    }
+
+            return response
         elif command == "copy":
-            pass
+            server_response = request_server("copy_file",
+                                             path, filename,
+                                             new_directory)
+            return server_response
         elif command == "move":
-            pass
+            server_response = request_server("move_file",
+                                             path,
+                                             filename,
+                                             new_directory)
+            return server_response
+        elif command == "delete":
+            query = {
+                "path": path,
+                "filename": filename
+            }
+            for element in db.my_collection.find(query):
+                for storage in element['storages']:
+                    message = SEPARATOR.join(["delete_file", filename])
+                    server_response = send_n_recv_message(storage,
+                                                          PORT,
+                                                          message)
+            # TODO: delete a record from MONGODB
+            return server_response
         else:
             return {"answer": "invalid command"}
-
-    def delete(self):
-        pass
 
 
 class Directory(Resource):
@@ -127,10 +178,10 @@ class Directory(Resource):
         args = parser.parse_args()
         command = args['command']
         path = args['current directory']
-        filename = args['target directory']
+        target_directory = args['target directory']
 
         if command == "open":
-            pass
+            return {"response": "done"}
         elif command == "read":
             query = {}
             return pprint.pformat([element for element in db.my_collection.find(query)])
@@ -139,11 +190,19 @@ class Directory(Resource):
                 "path": path,
             }
             db.my_collection.insert_one(item)
+        elif command == "delete":
+            query = {
+                "path": path,
+            }
+            for element in db.my_collection.find(query):
+                for storage in element['storages']:
+                    message = SEPARATOR.join(["delete_dir", path])
+                    server_response = send_n_recv_message(storage,
+                                                          PORT,
+                                                          message)
+            return server_response
         else:
             return {"answer": "incorrect command"}
-
-    def delete(self):
-        return "deleted."
 
 
 api.add_resource(Initialize, "/init")
