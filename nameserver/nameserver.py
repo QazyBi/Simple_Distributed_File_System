@@ -126,7 +126,9 @@ class Initialize(Resource):
                 AVAILABLE_SIZE += int(size)
             else:
                 app.logger.info("Storage Server returned non numerical size")
-        return AVAILABLE_SIZE
+        return {"size": AVAILABLE_SIZE,
+                "status": "success",
+                "response": "sending available size of distributed file system"}
 
 
 class File(Resource):
@@ -190,12 +192,13 @@ class File(Resource):
                     "ip": selected_storages,
                     "port": PORT,
                     "new_filename": new_filename,
-                    "status": "success"
+                    "status": "success",
+                    "response": "file will be stored in servers"
                 }
             except:
                 response = {
                     "response": "server error",
-                    "status": "success"
+                    "status": "failed"
                 }
             return response
         elif command == "read":
@@ -284,7 +287,7 @@ class File(Resource):
             else:
                 response = {
                     "status": "failed",
-                    "response": "server could not copy file"
+                    "response": "no such directory"
                 }
             return response
         elif command == "move":
@@ -310,7 +313,7 @@ class File(Resource):
             else:
                 response = {
                     "status": "failed",
-                    "response": "server could not move file"
+                    "response": "no such directory"
                 }
             return response
         elif command == "delete":
@@ -424,6 +427,8 @@ class Directory(Resource):
                 "datetime": datetime.datetime.now(),
             }
             db.my_collection.insert_one(item)
+            return {"status": "success",
+                    "response": "created directory"}
         elif command == "delete":
             """POST request
 
@@ -444,7 +449,10 @@ class Directory(Resource):
                                                           PORT,
                                                           message)
             db.my_collection.delete_one(query)
-            return server_response
+            if check_server_response(server_response):
+                return {"response": "deleted folder", "status": "success"}
+            else:
+                return {"response": "no such directory", "status": "failed"}
         else:
             return {"response": "incorrect command", "status": "failed"}
 
