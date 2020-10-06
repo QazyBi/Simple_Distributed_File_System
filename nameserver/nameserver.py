@@ -182,10 +182,10 @@ def format_dir(directory):
 class Directory(Resource):
     def post(self):
         global CURRENT_DIR
-        args = parser.parse_args()
+        args = parser_dir.parse_args()
         command = args['command']
-        path = args['current directory']
-        target_directory = args['target directory']
+        path = args['current_directory']
+        target_directory = args['target_directory']
 
         if command == "open":
             CURRENT_DIR = format_dir(target_directory)
@@ -199,7 +199,7 @@ class Directory(Resource):
                 query = {
                     "path": {"$regex": f"^{format_dir(target_directory)}$"},
                 }
-            return pprint.pformat(set([element for element in db.my_collection.find(query)]))
+            return pprint.pformat([element for element in db.my_collection.find(query)])
         elif command == "make":
             item = {
                 "path": format_dir(path),
