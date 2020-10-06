@@ -31,9 +31,7 @@ def initialize():
 def create_file(file):
     path, filename = os.path.split(file)
     try:
-        r = requests.post(url + "/file", params={'command': 'create',
-                                             'filename': filename,
-                                            'path': path})
+        r = requests.post(url + "/file", params={'command': 'create', 'filename': filename, 'path': path, 'size': 0})
         try:
             j = r.json()
             print(j['response'])
@@ -53,7 +51,7 @@ def read_file(file):
             
             if j['status'] == 'success':
                 print(j['response'])
-                ip_list = j['ip']
+                ip_list = j['storages']
                 port = j['port']
                 ip = ip_list[0]
 
@@ -107,11 +105,13 @@ def write_file(file):
                 try:
                     s = socket.socket()
                     s.connect((ip_list[0], port))
-                    f = open(file, "rb")
-                    data = f.read(BUFFER_SIZE)
-                    stream = 'write' + SEPARATOR + filename + SEPARATOR + " ".join(ip_list) + SEPARATOR + data
-                    while stream:
-                        s.send(stream)
+                    data = ''
+                    with open(file, "rb") as file:
+                        for line in file:
+                            data += line.decode()                    
+                    stream = 'write_file' + SEPARATOR + filename + SEPARATOR + " ".join(ip_list[1:]) + SEPARATOR + data
+                    s.sendall(stream.encode())
+                    s.sendall('<DONE>'.encode())
                     f.close()
                     s.close()
                 except:
@@ -152,6 +152,7 @@ def file_info(file):
             
             if j['status'] == 'success':
                 print(j['response'])
+#                 print(j)
                 size = j['size']
                 storages = j['storages']
                 datetime = j['datetime']
@@ -286,7 +287,12 @@ def delete_dir(target_directory):
         
         try:
             j = r.json()
-            print(j['response'])
+            
+            if j['response'] == 'no permission':
+                r = requests.post(url + "/dir", params={'command': 'delete', 'target_directory': target_directory})
+            else:
+                print(j['response'])
+            
         except:
             print("can't read json")
         
@@ -311,7 +317,7 @@ def get_current_directory():
         
     return data
     
-# too slow working
+
 while True:
     data = get_current_directory()
     if data['status'] == 'success':
