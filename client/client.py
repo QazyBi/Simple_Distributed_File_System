@@ -135,7 +135,10 @@ def open_dir(current_dirrectory, target_directory):
 
 
 def read_dir(target_directory):
-    r = requests.post(url + "/dir", params={'command': 'read',
+    if target_directory == "null":
+        r = requests.post(url + "/dir", params={'command': 'read'})
+    else:
+        r = requests.post(url + "/dir", params={'command': 'read',
                                              'target_directory': target_directory})
     data = r.json()
     print(data)
