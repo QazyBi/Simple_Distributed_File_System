@@ -20,6 +20,12 @@ response = {
                     }
 ```
 ## 2. Description of communication between Client and StorageServer
-The communication, more precisely files transfer, happens via sockets.
+The communication, more precisely files transfer, happens via sockets. It's a common and good way to transfer big files. Moreover we practiced it during lab. Example:
+```
+s = socket.socket()
+conn, addr = s.accept()
+conn.send(outcoming_stream)
+data = conn.recv(BUFFER_SIZE)
+```
 ## 3. Description of communication between NameServer and StorageServer
 The communication, more precisely messaging, happens via sockets.
