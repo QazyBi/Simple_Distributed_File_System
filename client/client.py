@@ -57,23 +57,25 @@ def read_file(file):
 
                 try:
                     s = socket.socket()
-                    s.bind((ip, port))
-                    s.listen()
-                    f = open(file, "wb")
-                    while True:
-                        conn, addr = s.accept()
-                        outcoming_stream = 'read' + SEPARATOR + filename
-                        while outcoming_stream:
-                            conn.send(outcoming_stream)
-                        incoming_stream = conn.recv(BUFFER_SIZE)
-                        parameters = incoming_stream.split(SEPARATOR)
-                        data = parameters[0]
-                        flag = parameters[1]
-                        while data:
-                            f.write(data)
-                            data = conn.recv(BUFFER_SIZE)
-                            f.close()
-                        conn.close()
+                    s.connect((ip, port))
+                    f = open(file, "w")
+                    outcoming_stream = 'read_file' + SEPARATOR + filename
+                    s.sendall(outcoming_stream.encode())
+                    s.sendall("<DONE>".encode())
+                    incoming_stream = ''
+                    data = s.recv(BUFFER_SIZE)
+                    while data:
+                        incoming_stream += data.encode()
+                        data = s.recv(BUFFER_SIZE)
+                    parameters = incoming_stream.split(SEPARATOR)
+                    data = parameters[0]
+                    flag = parameters[1]
+                    if flag == 'True':
+                        f.write(data)
+                    else:
+                        print(data)
+                    f.close()
+                    s.close()
                 except:
                     print('no connection with storage')
                     
@@ -86,7 +88,7 @@ def read_file(file):
     except:
         print('no connection')
 
-        
+# creating files with the same name !!!!        
 def write_file(file):
     path, filename = os.path.split(file)
     size = os.stat(file).st_size
@@ -112,7 +114,6 @@ def write_file(file):
                     stream = 'write_file' + SEPARATOR + filename + SEPARATOR + " ".join(ip_list[1:]) + SEPARATOR + data
                     s.sendall(stream.encode())
                     s.sendall('<DONE>'.encode())
-                    f.close()
                     s.close()
                 except:
                     print('no connection with storage')
@@ -184,7 +185,7 @@ def copy_file(file, new_dir):
                 print(j['response'])
                 
                 if j['response'] == 'no such directory':
-                    print(j['response'])
+                    print()
                     make_dir(new_dir)
                     try:
                         r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_dir': new_dir})
