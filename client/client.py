@@ -9,6 +9,7 @@ namenode_IP = "10.0.15.12"
 port = 8080
 url = "http://" + namenode_IP + ":" + str(port)
 
+
 def initialize():
     r = requests.get(url + "/init")
     data = r.json()
@@ -137,7 +138,7 @@ def read_dir(target_directory):
     r = requests.post(url + "/dir", params={'command': 'read',
                                              'target_directory': target_directory})
     data = r.json()
-    print(data['files'])
+    print(data)
 
 
 def make_dir(target_directory):
@@ -148,3 +149,44 @@ def make_dir(target_directory):
 def delete_dir(target_directory):
     r = requests.post(url + "/dir", params={'command': 'delete',
                                              'target_directory': target_directory})
+
+
+def test(arg):
+    print(arg+arg)
+    
+    
+while True:
+    string = input()
+    arguments = string.split(" ")
+    command = arguments[0]
+    if command == "init":
+        initialize()
+    elif command == "touch":
+        create_file(arguments[1])
+    elif command == "read_file":
+        read_file(arguments[1])
+    elif command == "write_file":
+        write_file(arguments[1])
+    elif command == "rm" and arguments[1] != "-r":
+        delete_file(arguments[1])
+    elif command == "info":
+        file_info(arguments[1])
+    elif command == "cp":
+        copy_file(arguments[1], arguments[2])
+    elif command == "mv":
+        move_file(arguments[1], arguments[2])
+    elif command == "cd":
+        open_dir(arguments[1], arguments[2])
+    elif command == "ls":
+        try:
+            read_dir(arguments[1])
+        except:
+            read_dir('null')
+    elif command == "mkdir":
+        make_dir(arguments[1])
+    elif command == "rm" and arguments[1] == "-r":
+        delete_dir(arguments[2])
+    elif command == "exit":
+        break
+    elif command =="test":
+        test(arguments[1])
