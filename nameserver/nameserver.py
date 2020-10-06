@@ -8,7 +8,7 @@ import datetime
 
 
 AVAILABLE_SIZE = 0
-REPLICA_NUM = 2
+REPLICA_NUM = 1
 BUFFER_SIZE = 1024
 SEPARATOR = "<SEPARATOR>"
 
@@ -18,7 +18,7 @@ PORT = 8080
 STORAGE_1 = "10.0.15.13"
 STORAGE_2 = "10.0.15.14"
 STORAGE_3 = "10.0.15.15"
-STORAGES = [STORAGE_1, STORAGE_2, STORAGE_3]
+STORAGES = [STORAGE_3]  # [STORAGE_1, STORAGE_2]
 URI = 'mongodb://' + os.environ['MONGODB_USERNAME'] + ':'\
                    + os.environ['MONGODB_PASSWORD'] + '@'\
                    + os.environ['MONGODB_HOSTNAME'] + ':27017/'
@@ -47,7 +47,8 @@ def send_n_recv_message(ip, port, message):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((ip, port))
             # send message to the socket
-            s.send(message.encode())
+            s.sendall(message.encode())
+            s.sendall("<DONE>".encode())
             # receive message from server via socket
             answer_message = s.recv(BUFFER_SIZE).decode()
     except:
@@ -58,8 +59,13 @@ def send_n_recv_message(ip, port, message):
 def select_storage_servers(storages, amount):
     storage_dict = {}
     for storage in storages:
-        size = send_n_recv_message(storage, PORT, "disk_size")
-        storage_dict[storage] = int(size)
+        # handle cases when output contains an error
+        server_response = send_n_recv_message(storage, PORT, "disk_size").split(SEPARATOR)
+        size = server_response[0]
+        if size.isdigit():
+            storage_dict[storage] = int(size)
+        else:
+            return "-1"
 
     sorted_dict = {k: v for k, v in sorted(storage_dict.items(),
                                            key=lambda item: item[1])}
@@ -114,18 +120,20 @@ class Initialize(Resource):
         Returns:
         int: available disk size on file system
         """
-
         global AVAILABLE_SIZE
         global CURRENT_DIR
         AVAILABLE_SIZE = 0
         CURRENT_DIR = "/var/storage/"
         for storage in STORAGES:
             # send request to initialize to each storage server
-            size = send_n_recv_message(storage, PORT, "initialize")
-            if size.isdigit():
-                AVAILABLE_SIZE += int(size)
+            server_response = send_n_recv_message(storage, PORT, "initialize").split(SEPARATOR)
+            if server_response[0].isdigit():
+                AVAILABLE_SIZE += int(server_response[0])
             else:
-                app.logger.info("Storage Server returned non numerical size")
+                app.logger.info("Storage Server returned non numerical size %s", server_response[0])
+                return {"status": "failed",
+                        "response": "error in storage server"}
+
         return {"size": AVAILABLE_SIZE,
                 "status": "success",
                 "response": "sending available size of distributed file system"}
@@ -153,6 +161,10 @@ class File(Resource):
             Make request to storage servers
             """
             selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
+            if selected_storages[0] == "-1":
+                return {"response": "server error",
+                        "status": "failed"}
+
             new_filename = available_filename(filename, path)
             message = SEPARATOR.join(["create_file", new_filename, " ".join(selected_storages)])
             response = send_n_recv_message(selected_storages[0], PORT, message)
@@ -176,7 +188,7 @@ class File(Resource):
                 filename|new_filename(if such file exists)
             """
             try:
-                selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
+                selected_storages = [STORAGE_3]  # select_storage_servers(STORAGES, REPLICA_NUM)
                 # selected_storages = [STORAGE_1, STORAGE_2]  # used for debugging
 
                 new_filename = available_filename(filename, path)
