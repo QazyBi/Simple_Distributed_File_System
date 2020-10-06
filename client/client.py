@@ -100,7 +100,7 @@ def write_file(file):
             
             if j['status'] == 'success':
                 print(j['response'])
-                ip_list = j['ip']
+                ip_list = j['storages']
                 port = j['port']
                 new_filename = j['new_filename']
 
@@ -174,7 +174,7 @@ def file_info(file):
 def copy_file(file, new_dir):
     path, filename = os.path.split(file)
     try:
-        r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_dir': new_dir})
+        r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_directory': new_dir})
         
         try:
             j = r.json()
@@ -185,10 +185,12 @@ def copy_file(file, new_dir):
                 print(j['response'])
                 
                 if j['response'] == 'no such directory':
-                    print()
+                    print(j['response'])
                     make_dir(new_dir)
                     try:
-                        r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_dir': new_dir})
+                        r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_directory': new_dir})
+                        j = r.json()
+                        print(j['response'])
                     except:
                         print('no connection')
             
@@ -202,7 +204,7 @@ def copy_file(file, new_dir):
 def move_file(file, new_dir):
     path, filename = os.path.split(file)
     try:
-        r = requests.post(url + "/file", params={'command': 'move', 'filename': filename, 'path': path, 'new_dir': new_dir})
+        r = requests.post(url + "/file", params={'command': 'move', 'filename': filename, 'path': path, 'new_directory': new_dir})
         
         try:
             j = r.json()
@@ -215,7 +217,9 @@ def move_file(file, new_dir):
                 if j['response'] == 'no such directory':
                     make_dir(new_dir)
                     try:
-                        r = requests.post(url + "/file", params={'command': 'move', 'filename': filename, 'path': path, 'new_dir': new_dir})
+                        r = requests.post(url + "/file", params={'command': 'move', 'filename': filename, 'path': path, 'new_directory': new_dir})
+                        j = r.json()
+                        print(j['response'])
                     except:
                         print('no connection')
             
@@ -226,9 +230,9 @@ def move_file(file, new_dir):
         print('no connection')
 
 
-def open_dir(current_dirrectory, target_directory):
+def open_dir(target_directory):
     try:
-        r = requests.post(url + "/dir", params={'command': 'open', 'current_dirrectory': current_dirrectory, 'target_directory': target_directory})
+        r = requests.post(url + "/dir", params={'command': 'open', 'target_directory': target_directory})
         
         try:
             j = r.json()
@@ -239,18 +243,18 @@ def open_dir(current_dirrectory, target_directory):
     except:
         print('no connection')
         
-# what is the output format
+
 def read_dir(target_directory):
     if target_directory == "null":
         
         try:
             r = requests.post(url + "/dir", params={'command': 'read'})
             
-            print(r)
-#             try:
-#                 j = r.json()
-#             except:
-#                 print("can't read json")
+            try:
+                j = r.json()
+                print(j['files'])
+            except:
+                print("can't read json")
             
         except:
             print('no connection')
@@ -262,6 +266,7 @@ def read_dir(target_directory):
             
             try:
                 j = r.json()
+                print(j['files'])
             except:
                 print("can't read json")
             
@@ -289,6 +294,7 @@ def delete_dir(target_directory):
         
         try:
             j = r.json()
+            print(j['response'])
             
             if j['response'] == 'no permission':
                 print(j['response'])
@@ -353,7 +359,7 @@ while True:
         elif command == "mv":
             move_file(arguments[1], arguments[2])
         elif command == "cd":
-            open_dir(arguments[1], arguments[2])
+            open_dir(arguments[1])
         elif command == "ls":
             try:
                 read_dir(arguments[1])
