@@ -16,14 +16,15 @@ def initialize():
 	initialized = True
 
 	global main_path
-	main_path = '/home/ubuntu/data'
+	main_path = '/data'
 	
 	global availabe_size
 	availabe_size = 1024 * 2 # availabe disk size on the storage server in MB
 
 	# remove the directory if it exists
 	if os.path.isdir(main_path):
-		os.path.rmdir(main_path)
+		shutil.rmtree(main_path) 
+
 	# create the directory where data is stored
 	os.mkdir(main_path) 
 
@@ -112,7 +113,7 @@ then replicas it on the nodes with the specified IPs.
 If the procedure was done succefully, it returns True. Otherwise, it returns
 a message with the error as a string.
 '''
-def write_file(filename, IPs = [], data):
+def write_file(filename, IPs = [], data = None):
 	return create_file(filename, IPs, data)
 
 '''
@@ -265,22 +266,13 @@ def disk_size(directory):
 '''
 send an acknowledgement message to the target server
 '''
-def acknowledgement(target_IP, target_port, message):
-	local_s = socket.socket()
-	local_ip = socket.gethostbyname(socket.gethostname())   
-
-	# Bind to the port 8000
-	local_s.bind((local_ip, 8000))
-
-	# coonecnt to the target server
-	local_s.connect((target_IP, target_port))
-
+def acknowledgement(c, message):
 	# merge message using SEPARATOR
-	message[1] = str(message[1])
-	message = SEPARATOR.join(message)
-
+	message = SEPARATOR.join([str(i) for i in message])
+	print('FFFFFFFFFFFFFFFFFFF')
+	print(message)
 	# send acknowledgement message
-	local_s.sendall(message.encode())
+	c.sendall(message.encode())
 
 
 # Create a socket object
@@ -298,14 +290,18 @@ print('Listening on port:', port)
 print('-----------')
 
 while True:
+	print('SS')
 	# Establish connection with client.
 	c, addr = s.accept()    
+
+	print('Recived a connection from {}', addr)
 
 	# receive the data stream
 	stream = ''
 	while True:
+		print(stream)
 		data = c.recv(BUFFER_SIZE)
-		if not data:
+		if data.decode() == '<DONE>':
 			break
 		stream += data.decode()
 
@@ -313,51 +309,56 @@ while True:
 	parameters = stream.split(SEPARATOR)
 	command = parameters[0]
 
+	print(command)
+
 	if command == 'initialize':
-		acknowledgement(addr, port, initialize())
+		print('ggggggggg')
+		acknowledgement(c, initialize())
 
 	elif command == 'create_file':
 		filename = parameters[1]
 		IPs = parameters[2].split(' ')
-		acknowledgement(addr, port, create_file(filename, IPs))
+		acknowledgement(c, create_file(filename, IPs))
 
 	elif command == 'read_file':
 		filename = parameters[1]
-		acknowledgement(addr, port, read_file(filename))
+		acknowledgement(c, read_file(filename))
 
 	elif command == 'write_file':
 		filename = parameters[1]
 		IPs = parameters[2].split(' ')
 		data = parameters[3]
-		acknowledgement(addr, port, write_file(filename, IPs, data))
+		acknowledgement(c, write_file(filename, IPs, data))
 
 	elif command == 'copy_file':
 		filename = parameters[1]
 		target_filename = parameters[2]
-		acknowledgement(addr, port, copy_file(filename, target_filename))
+		acknowledgement(c, copy_file(filename, target_filename))
 
 	elif command == 'move_file':
 		filename = parameters[1]
 		target_filename = parameters[2]
-		acknowledgement(addr, port, move_file(filename, target_filename))
+		acknowledgement(c, move_file(filename, target_filename))
 
 	elif command == 'delte_file':
 		filename = parameters[1]
-		acknowledgement(addr, port, delte_file(filename))
+		acknowledgement(c, delte_file(filename))
 
 	elif command == 'read_dir':
 		path = parameters[1]
-		acknowledgement(addr, port, read_dir(path))
+		acknowledgement(c, read_dir(path))
 	
 	elif command == 'delete_dir':
 		path = parameters[1]
-		acknowledgement(addr, port, delete_dir(path))
+		acknowledgement(c, delete_dir(path))
 
 	elif command == 'disk_size':
-		acknowledgement(addr, port, disk_size())
+		acknowledgement(c, disk_size())
 
 	else:
-		acknowledgement(addr, port, ('Error: no such a command!'))
+		acknowledgement(c, ('Error: no such a command!', False))
 
-	s.shutdown(socket.SHUT_WR)
-	s.close()
+	c.shutdown(socket.SHUT_WR)
+	c.close()
+
+
