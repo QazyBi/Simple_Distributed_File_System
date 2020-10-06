@@ -76,12 +76,24 @@ def request_server(command, path, filename, new_directory):
 
 class Initialize(Resource):
     def get(self):
+        """GET request to init distributed file system
+        Route: nameserver:8080/init
+
+        Returns
+        -------
+        Int
+            available disk size on file system
+        """
+
         global AVAILABLE_SIZE
+        global CURRENT_DIR
         AVAILABLE_SIZE = 0
+        CURRENT_DIR = "/var/storage/"
         for storage in STORAGES:
+            # send request to initialize to each storage server
             size = send_n_recv_message(storage, PORT, "initialize")
             AVAILABLE_SIZE += int(size)
-        return "available size"
+        return AVAILABLE_SIZE
 
 
 class File(Resource):
@@ -94,6 +106,12 @@ class File(Resource):
         new_directory = args['new_directory']
 
         if command == "create":
+            """
+            POST request, client sends (filename, path, size) => nameserver makes request to storage server
+            route: nameserver:8080/file
+            add command=create, filename and path inside request
+
+            """
             selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
             for storage in selected_storages:
                 send_n_recv_message(storage, PORT, "create")  # handle output
@@ -182,14 +200,17 @@ def format_dir(directory):
 class Directory(Resource):
     def post(self):
         global CURRENT_DIR
-        args = parser.parse_args()
+        args = parser_dir.parse_args()
         command = args['command']
-        path = args['current directory']
-        target_directory = args['target directory']
+        path = args['current_directory']
+        target_directory = args['target_directory']
 
         if command == "open":
-            CURRENT_DIR = format_dir(target_directory)
-            return {"response": "done"}
+            if target_directory != "null":
+                CURRENT_DIR = format_dir(target_directory)
+                return {"response": "done"}
+            else:
+                return {"response": "provide target directory"}
         elif command == "read":
             if target_directory == "null":
                 query = {
@@ -199,7 +220,7 @@ class Directory(Resource):
                 query = {
                     "path": {"$regex": f"^{format_dir(target_directory)}$"},
                 }
-            return pprint.pformat(set([element for element in db.my_collection.find(query)]))
+            return pprint.pformat([element for element in db.my_collection.find(query)])  # try to use set to select unique items
         elif command == "make":
             item = {
                 "path": format_dir(path),
