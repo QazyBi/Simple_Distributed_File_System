@@ -31,9 +31,7 @@ def initialize():
 def create_file(file):
     path, filename = os.path.split(file)
     try:
-        r = requests.post(url + "/file", params={'command': 'create',
-                                             'filename': filename,
-                                            'path': path})
+        r = requests.post(url + "/file", params={'command': 'create', 'filename': filename, 'path': path, 'size': 0})
         try:
             j = r.json()
             print(j['response'])
@@ -53,29 +51,31 @@ def read_file(file):
             
             if j['status'] == 'success':
                 print(j['response'])
-                ip_list = j['ip']
+                ip_list = j['storages']
                 port = j['port']
                 ip = ip_list[0]
 
                 try:
                     s = socket.socket()
-                    s.bind((ip, port))
-                    s.listen()
-                    f = open(file, "wb")
-                    while True:
-                        conn, addr = s.accept()
-                        outcoming_stream = 'read' + SEPARATOR + filename
-                        while outcoming_stream:
-                            conn.send(outcoming_stream)
-                        incoming_stream = conn.recv(BUFFER_SIZE)
-                        parameters = incoming_stream.split(SEPARATOR)
-                        data = parameters[0]
-                        flag = parameters[1]
-                        while data:
-                            f.write(data)
-                            data = conn.recv(BUFFER_SIZE)
-                            f.close()
-                        conn.close()
+                    s.connect((ip, port))
+                    f = open(file, "w")
+                    outcoming_stream = 'read_file' + SEPARATOR + filename
+                    s.sendall(outcoming_stream.encode())
+                    s.sendall("<DONE>".encode())
+                    incoming_stream = ''
+                    data = s.recv(BUFFER_SIZE)
+                    while data:
+                        incoming_stream += data.encode()
+                        data = s.recv(BUFFER_SIZE)
+                    parameters = incoming_stream.split(SEPARATOR)
+                    data = parameters[0]
+                    flag = parameters[1]
+                    if flag == 'True':
+                        f.write(data)
+                    else:
+                        print(data)
+                    f.close()
+                    s.close()
                 except:
                     print('no connection with storage')
                     
@@ -88,7 +88,7 @@ def read_file(file):
     except:
         print('no connection')
 
-        
+# creating files with the same name !!!!        
 def write_file(file):
     path, filename = os.path.split(file)
     size = os.stat(file).st_size
@@ -107,12 +107,13 @@ def write_file(file):
                 try:
                     s = socket.socket()
                     s.connect((ip_list[0], port))
-                    f = open(file, "rb")
-                    data = f.read(BUFFER_SIZE)
-                    stream = 'write' + SEPARATOR + filename + SEPARATOR + " ".join(ip_list) + SEPARATOR + data
-                    while stream:
-                        s.send(stream)
-                    f.close()
+                    data = ''
+                    with open(file, "rb") as file:
+                        for line in file:
+                            data += line.decode()                    
+                    stream = 'write_file' + SEPARATOR + filename + SEPARATOR + " ".join(ip_list[1:]) + SEPARATOR + data
+                    s.sendall(stream.encode())
+                    s.sendall('<DONE>'.encode())
                     s.close()
                 except:
                     print('no connection with storage')
@@ -152,6 +153,7 @@ def file_info(file):
             
             if j['status'] == 'success':
                 print(j['response'])
+#                 print(j)
                 size = j['size']
                 storages = j['storages']
                 datetime = j['datetime']
@@ -183,6 +185,7 @@ def copy_file(file, new_dir):
                 print(j['response'])
                 
                 if j['response'] == 'no such directory':
+                    print()
                     make_dir(new_dir)
                     try:
                         r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_dir': new_dir})
@@ -286,7 +289,18 @@ def delete_dir(target_directory):
         
         try:
             j = r.json()
-            print(j['response'])
+            
+            if j['response'] == 'no permission':
+                print(j['response'])
+                
+                try:
+                    r = requests.post(url + "/dir", params={'command': 'delete', 'target_directory': target_directory, 'current_directory': 'yes'})
+                except:
+                    print('no connection')
+                
+            else:
+                print(j['response'])
+            
         except:
             print("can't read json")
         
@@ -311,7 +325,7 @@ def get_current_directory():
         
     return data
     
-# too slow working
+
 while True:
     data = get_current_directory()
     if data['status'] == 'success':

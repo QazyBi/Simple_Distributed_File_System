@@ -7,6 +7,8 @@ main_path = None
 availabe_size = None
 SEPARATOR = '<SEPARATOR>'
 BUFFER_SIZE = 1024
+
+
 '''
 Initializes the node, deletes any files if exist, and returns the 
 available size (1536 MB by default).
@@ -72,11 +74,29 @@ def create_file(filename, IPs = [], data = None):
 		# create a file with data
 		with open(full_path, 'w') as file:
 			file.write(data)
+		
+	print(f'second IPS are {IPs}')
 
-	'''
-	!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!TO be done later!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	replicate the file on the remaining IPs
-	'''
+	# replicate the file on the remaining IPs
+	if len(IPs) > 0:
+		next_IP = IPs[0]
+		print(f'next IP is {next_IP}')
+		try:
+			s = socket.socket()
+			s.connect((next_IP, 8080))
+
+			message = SEPARATOR.join(['create_file', filename, ' '.join(IPs[1: ])])
+			s.sendall(message.encode())
+			s.sendall('<DONE>'.encode())
+
+			response = s.recv(BUFFER_SIZE).decode().split(SEPARATOR)
+
+			if response[1] == 'True':
+				return (response[0], True)
+			else:
+				return (response[0], False)
+		except:
+			return (f"Error: couldn't connect to IP -{IPs[0]}-{next_IP}-", False)
 
 	return ('<DONE>', True)
 
@@ -258,10 +278,7 @@ def disk_size(directory):
     except PermissionError:
         # if for whatever reason we can't open the folder, return 0
         return 0
-    return total
-
-
-
+    return (str(2048 - total), True)
 
 '''
 send an acknowledgement message to the target server
@@ -269,11 +286,14 @@ send an acknowledgement message to the target server
 def acknowledgement(c, message):
 	# merge message using SEPARATOR
 	message = SEPARATOR.join([str(i) for i in message])
-	print('FFFFFFFFFFFFFFFFFFF')
 	print(message)
 	# send acknowledgement message
 	c.sendall(message.encode())
 
+
+
+# initialize the server automatically whenever it's turned on
+initialize()
 
 # Create a socket object
 port = 8080
@@ -290,7 +310,6 @@ print('Listening on port:', port)
 print('-----------')
 
 while True:
-	print('SS')
 	# Establish connection with client.
 	c, addr = s.accept()    
 
@@ -299,9 +318,9 @@ while True:
 	# receive the data stream
 	stream = ''
 	while True:
-		print(stream)
 		data = c.recv(BUFFER_SIZE)
-		if data.decode() == '<DONE>':
+		print(stream)
+		if data.decode()[-6: ] == '<DONE>':
 			break
 		stream += data.decode()
 
@@ -312,12 +331,15 @@ while True:
 	print(command)
 
 	if command == 'initialize':
-		print('ggggggggg')
 		acknowledgement(c, initialize())
 
 	elif command == 'create_file':
 		filename = parameters[1]
-		IPs = parameters[2].split(' ')
+		if parameters[2] == '':
+			IPs = []
+		else:
+			IPs = parameters[2].split(' ')
+		print(f'first IPS are {IPs}')
 		acknowledgement(c, create_file(filename, IPs))
 
 	elif command == 'read_file':
@@ -326,7 +348,10 @@ while True:
 
 	elif command == 'write_file':
 		filename = parameters[1]
-		IPs = parameters[2].split(' ')
+		if parameters[2] == '':
+			IPs = []
+		else:
+			IPs = parameters[2].split(' ')
 		data = parameters[3]
 		acknowledgement(c, write_file(filename, IPs, data))
 
@@ -340,9 +365,9 @@ while True:
 		target_filename = parameters[2]
 		acknowledgement(c, move_file(filename, target_filename))
 
-	elif command == 'delte_file':
+	elif command == 'delete_file':
 		filename = parameters[1]
-		acknowledgement(c, delte_file(filename))
+		acknowledgement(c, delete_file(filename))
 
 	elif command == 'read_dir':
 		path = parameters[1]
@@ -353,7 +378,7 @@ while True:
 		acknowledgement(c, delete_dir(path))
 
 	elif command == 'disk_size':
-		acknowledgement(c, disk_size())
+		acknowledgement(c, disk_size('/data'))
 
 	else:
 		acknowledgement(c, ('Error: no such a command!', False))
