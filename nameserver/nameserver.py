@@ -1,14 +1,15 @@
 from flask import Flask
 from flask_restful import Resource, Api, reqparse
 from pymongo import MongoClient
-import pprint
 import os
+import pprint
 import socket
 import datetime
+from json import dumps
 
 
 AVAILABLE_SIZE = 0
-REPLICA_NUM = 1
+REPLICA_NUM = 2
 BUFFER_SIZE = 1024
 SEPARATOR = "<SEPARATOR>"
 
@@ -18,15 +19,15 @@ PORT = 8080
 STORAGE_1 = "10.0.15.13"
 STORAGE_2 = "10.0.15.14"
 STORAGE_3 = "10.0.15.15"
-STORAGES = [STORAGE_3]  # [STORAGE_1, STORAGE_2]
+STORAGES = [STORAGE_1, STORAGE_2, STORAGE_3]
 URI = 'mongodb://' + os.environ['MONGODB_USERNAME'] + ':'\
                    + os.environ['MONGODB_PASSWORD'] + '@'\
                    + os.environ['MONGODB_HOSTNAME'] + ':27017/'
 
-app = Flask(__name__)
-api = Api(app)
 mongo = MongoClient(URI)
 db = mongo.index
+app = Flask(__name__)
+api = Api(app)
 
 parser = reqparse.RequestParser()
 parser.add_argument('command')
@@ -57,19 +58,19 @@ def send_n_recv_message(ip, port, message):
 
 
 def select_storage_servers(storages, amount):
-    storage_dict = {}
-    for storage in storages:
+    storage_list = []
+    for storage_index, storage in enumerate(storages):
         # handle cases when output contains an error
         server_response = send_n_recv_message(storage, PORT, "disk_size").split(SEPARATOR)
         size = server_response[0]
         if size.isdigit():
-            storage_dict[storage] = int(size)
+            storage_list.append((size, storage))
         else:
             return "-1"
 
-    sorted_dict = {k: v for k, v in sorted(storage_dict.items(),
-                                           key=lambda item: item[1])}
-    return [sorted_dict[i] for i in range(amount)]
+    storage_list.sort(reverse=True)
+
+    return [storage_list[i][1] for i in range(amount)]
 
 
 def request_server(command, path, filename, new_directory):
@@ -97,19 +98,32 @@ def available_filename(filename, path):
         "filename": filename,
         "path": path
     }
+    split = filename.split(".")
+    basename = split[0]
+    extension = split[1]
+    new_filename = filename
     # CHECK CASE when file which same name exists
-    while db.my_collection.find_one(query):
-        split = filename.split(".")
-        new_filename = split[0] + f"({counter})" + split[1]
+    while db.my_collection.find_one(query) is not None:
+        # app.logger.info("HERE")
+        new_filename = basename + f"({counter})" + "." + extension
         query = {
             "filename": new_filename,
             "path": path
         }
+        counter += 1
     return new_filename
 
 
 def format_dir(directory):
     return directory if directory[-1] == "/" else directory + "/"
+
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+
+    if isinstance(obj, (datetime.datetime, datetime.date)):
+        return obj.isoformat()
+    raise TypeError("Type %s not serializable" % type(obj))
 
 
 class Initialize(Resource):
@@ -165,8 +179,17 @@ class File(Resource):
                 return {"response": "server error",
                         "status": "failed"}
 
-            new_filename = available_filename(filename, path)
-            message = SEPARATOR.join(["create_file", new_filename, " ".join(selected_storages)])
+            new_filename = available_filename(filename, CURRENT_DIR)
+            item = {
+                "path": CURRENT_DIR,
+                "filename": new_filename,
+                "storages": selected_storages,
+                "datetime": request_datetime,
+                "size": size
+            }
+            db.my_collection.insert_one(item)
+
+            message = SEPARATOR.join(["create_file", new_filename, " ".join(selected_storages[1:])])
             response = send_n_recv_message(selected_storages[0], PORT, message)
             if check_server_response(response):
                 return {"response": "created a file",
@@ -234,7 +257,7 @@ class File(Resource):
             try:
                 for element in db.my_collection.find(query):
                     storages.extend(element['storages'])
-            except Exception:
+            except:
                 return {"status": "failed",
                         "response": "server error"}
 
@@ -257,19 +280,20 @@ class File(Resource):
                 datetime
             """
             query = {
-                "path": path,
+                "path": CURRENT_DIR,
                 "filename": filename
             }
+            response = {"response": "server error", "status": "failed"}
             for element in db.my_collection.find(query):
                 try:
                     response = {
-                        "ip": element['storages'],
+                        "storages": element['storages'],
                         "size": element['size'],
-                        "datetime": element['datetime'],
+                        "datetime": dumps(element['datetime'], default=json_serial),
                         "status": "success",
                         "response": "found record with this file"
                     }
-                except Exception:
+                except:
                     response = {
                         "response": "file not found",
                         "status": "failed"
