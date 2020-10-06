@@ -78,29 +78,6 @@ def request_server(command, path, filename, new_directory):
     return server_response
 
 
-class Initialize(Resource):
-    def get(self):
-        """GET request to init distributed file system
-        Route: nameserver:8080/init
-
-        Returns:
-        int: available disk size on file system
-        """
-
-        global AVAILABLE_SIZE
-        global CURRENT_DIR
-        AVAILABLE_SIZE = 0
-        CURRENT_DIR = "/var/storage/"
-        for storage in STORAGES:
-            # send request to initialize to each storage server
-            size = send_n_recv_message(storage, PORT, "initialize")
-            if size.isdigit():
-                AVAILABLE_SIZE += int(size)
-            else:
-                app.logger.info("Storage Server returned non numerical size")
-        return AVAILABLE_SIZE
-
-
 def check_server_response(message):
     if message.split(SEPARATOR)[1] == "True":
         return True
@@ -123,6 +100,33 @@ def available_filename(filename, path):
             "path": path
         }
     return new_filename
+
+
+def format_dir(directory):
+    return directory if directory[-1] == "/" else directory + "/"
+
+
+class Initialize(Resource):
+    def get(self):
+        """GET request to init distributed file system
+        Route: nameserver:8080/init
+
+        Returns:
+        int: available disk size on file system
+        """
+
+        global AVAILABLE_SIZE
+        global CURRENT_DIR
+        AVAILABLE_SIZE = 0
+        CURRENT_DIR = "/var/storage/"
+        for storage in STORAGES:
+            # send request to initialize to each storage server
+            size = send_n_recv_message(storage, PORT, "initialize")
+            if size.isdigit():
+                AVAILABLE_SIZE += int(size)
+            else:
+                app.logger.info("Storage Server returned non numerical size")
+        return AVAILABLE_SIZE
 
 
 class File(Resource):
@@ -355,10 +359,6 @@ class File(Resource):
             }
 
 
-def format_dir(directory):
-    return directory if directory[-1] == "/" else directory + "/"
-
-
 class Directory(Resource):
     def get(self):
         return {"response": "user's current directory",
@@ -390,10 +390,15 @@ class Directory(Resource):
             else:
                 return {"response": "provide target directory", "status": "falied"}
         elif command == "read":
-            """
-              - read directory: POST request, client sends (target directory) => nameserver returns all files in current directory
-              route: nameserver:8080/dir
-              add command=read, current directory inside request
+            """POST request
+
+            Route: nameserver:8080/dir
+
+            Args:
+                target directory
+
+            Returns:
+                all files in current directory
             """
             if target_directory == "null":
                 query = {
@@ -405,22 +410,29 @@ class Directory(Resource):
                 }
             return pprint.pformat([element for element in db.my_collection.find(query)])  # try to use set to select unique items
         elif command == "make":
-            """
-            - make directory: POST request, client sends (target directory) => nameserver creates directory record
-              route: nameserver:8080/dir
-              add command=make, new directory inside request
+            """POST request
 
+            Route: nameserver:8080/dir
+
+            Args:
+                target directory
+
+            creates directory record
             """
             item = {
-                "path": format_dir(path),
+                "target_directory": format_dir(target_directory),
                 "datetime": datetime.datetime.now(),
             }
             db.my_collection.insert_one(item)
         elif command == "delete":
-            """
-            - delete directory: POST request, client sends (directory) to delete => nameserver checks whether that dir has files if not deletes that directory
-              route: nameserver:8080/dir
-              add command=delete, directory
+            """POST request
+
+            Route: nameserver:8080/dir
+
+            Args:
+                directory to delete
+
+            checks whether that dir has files if not deletes that directory
             """
             query = {
                 "path": {"$regex": f"^{format_dir(target_directory)}"}
@@ -434,7 +446,7 @@ class Directory(Resource):
             db.my_collection.delete_one(query)
             return server_response
         else:
-            return {"answer": "incorrect command"}
+            return {"response": "incorrect command", "status": "failed"}
 
 
 api.add_resource(Initialize, "/init")
