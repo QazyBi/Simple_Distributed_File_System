@@ -2,7 +2,7 @@ from flask import Flask
 from flask_restful import Resource, Api, reqparse
 from pymongo import MongoClient
 import os
-import pprint
+# import pprint
 import socket
 import datetime
 from json import dumps
@@ -14,6 +14,7 @@ BUFFER_SIZE = 1024
 SEPARATOR = "<SEPARATOR>"
 
 CURRENT_DIR = "/var/storage/"
+ROOT_DIR = "/var/storage/"
 
 PORT = 8080
 STORAGE_1 = "10.0.15.13"
@@ -28,6 +29,9 @@ mongo = MongoClient(URI)
 db = mongo.index
 app = Flask(__name__)
 api = Api(app)
+
+temp = {"path": CURRENT_DIR, "datetime": datetime.datetime.now()}
+db.my_collection.insert_one(temp)
 
 parser = reqparse.RequestParser()
 parser.add_argument('command')
@@ -78,10 +82,13 @@ def request_server(command, path, filename, new_directory):
         "path": path,
         "filename": filename
     }
-    for element in db.my_collection.find(query):
-        for storage in element['storages']:
-            message = SEPARATOR.join([command, filename, new_directory])
+    r = db.my_collection.find_one(query)
+    if r is not None:
+        for storage in r['storages']:
+            message = SEPARATOR.join([command, path + filename, new_directory])
             server_response = send_n_recv_message(storage, PORT, message)
+    else:
+        return "error" + SEPARATOR + "False"
     return server_response
 
 
@@ -93,6 +100,7 @@ def check_server_response(message):
 
 
 def available_filename(filename, path):
+    app.logger.info("in the function %s", filename)
     counter = 0
     query = {
         "filename": filename,
@@ -100,11 +108,12 @@ def available_filename(filename, path):
     }
     split = filename.split(".")
     basename = split[0]
-    extension = split[1]
+    extension = ""
+    if len(split) > 1:
+        extension = split[1]
     new_filename = filename
     # CHECK CASE when file which same name exists
     while db.my_collection.find_one(query) is not None:
-        # app.logger.info("HERE")
         new_filename = basename + f"({counter})" + "." + extension
         query = {
             "filename": new_filename,
@@ -115,7 +124,10 @@ def available_filename(filename, path):
 
 
 def format_dir(directory):
-    return directory if directory[-1] == "/" else directory + "/"
+    if directory:
+        return directory if directory[-1] == "/" else directory + "/"
+    else:
+        return -1
 
 
 def json_serial(obj):
@@ -179,9 +191,9 @@ class File(Resource):
                 return {"response": "server error",
                         "status": "failed"}
 
-            new_filename = available_filename(filename, CURRENT_DIR)
+            new_filename = available_filename(filename, CURRENT_DIR + path)
             item = {
-                "path": CURRENT_DIR,
+                "path": CURRENT_DIR + path,
                 "filename": new_filename,
                 "storages": selected_storages,
                 "datetime": request_datetime,
@@ -211,12 +223,10 @@ class File(Resource):
                 filename|new_filename(if such file exists)
             """
             try:
-                selected_storages = [STORAGE_3]  # select_storage_servers(STORAGES, REPLICA_NUM)
-                # selected_storages = [STORAGE_1, STORAGE_2]  # used for debugging
-
-                new_filename = available_filename(filename, path)
+                new_filename = available_filename(filename, CURRENT_DIR + path)
+                selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
                 item = {
-                    "path": path,
+                    "path": CURRENT_DIR + path,
                     "filename": new_filename,
                     "storages": selected_storages,
                     "datetime": request_datetime,
@@ -224,7 +234,7 @@ class File(Resource):
                 }
                 db.my_collection.insert_one(item)
                 response = {
-                    "ip": selected_storages,
+                    "storages": selected_storages,
                     "port": PORT,
                     "new_filename": new_filename,
                     "status": "success",
@@ -250,21 +260,23 @@ class File(Resource):
                 port
             """
             query = {
-                "path": path,
+                "path": CURRENT_DIR + path,
                 "filename": filename
             }
             storages = []
             try:
-                for element in db.my_collection.find(query):
-                    storages.extend(element['storages'])
+                record = db.my_collection.find_one(query)
+                if record is not None:
+                    storages = record['storages']
+                else:
+                    return {"status": "failed", "response": "file not found"}
             except:
                 return {"status": "failed",
                         "response": "server error"}
-
-            return {"ip": storages,
+            return {"storages": storages,
                     "port": PORT,
                     "status": "success",
-                    "response": "record with file found"}
+                    "response": "file found"}
         elif command == "info":
             """POST request
 
@@ -312,18 +324,25 @@ class File(Resource):
 
             sends request to storage server copy command
             """
-            server_response = request_server("copy_file",
-                                             path + "/" + filename,
-                                             new_directory)
-            if check_server_response(server_response):
-                response = {
-                    "status": "success",
-                    "response": "copied file"
-                }
+            if filename != "":
+                server_response = request_server("copy_file",
+                                                 CURRENT_DIR + path,
+                                                 filename,
+                                                 new_directory)  # ROOT_DIR
+                if check_server_response(server_response):
+                    response = {
+                        "status": "success",
+                        "response": "copied file"
+                    }
+                else:
+                    response = {
+                        "status": "failed",
+                        "response": "no such directory"
+                    }
             else:
                 response = {
                     "status": "failed",
-                    "response": "no such directory"
+                    "response": "no filename provided"
                 }
             return response
         elif command == "move":
@@ -339,7 +358,7 @@ class File(Resource):
             sends request to storage server with move command
             """
             server_response = request_server("move_file",
-                                             path + "/" + filename,
+                                             CURRENT_DIR,
                                              new_directory)
             if check_server_response(server_response):
                 response = {
@@ -364,16 +383,16 @@ class File(Resource):
             sends request to storage server hosting that file
             """
             query = {
-                "path": path,
+                "path": CURRENT_DIR + path,
                 "filename": filename
             }
             try:
-                for element in db.my_collection.find(query):
-                    for storage in element['storages']:
-                        message = SEPARATOR.join(["delete_file", filename])
-                        server_response = send_n_recv_message(storage,
-                                                              PORT,
-                                                              message)
+                r = db.my_collection.find_one(query)
+                for storage in r['storages']:
+                    message = SEPARATOR.join(["delete_file", filename])
+                    server_response = send_n_recv_message(storage,
+                                                          PORT,
+                                                          message)
                 db.my_collection.delete_one(query)
                 if check_server_response(server_response):
                     response = {
@@ -424,10 +443,14 @@ class Directory(Resource):
             nameserver updates client's directory tracker
             """
             if target_directory != "null":
-                CURRENT_DIR = format_dir(target_directory)
-                return {"response": "successfully set new directory", "status": "success"}
+                query = {"path": target_directory}
+                if db.my_collection.find_one(query) is not None:
+                    CURRENT_DIR = format_dir(target_directory)
+                    return {"response": "successfully set new directory", "status": "success"}
+                else:
+                    return {"response": "no such directory", "status": "failed"}
             else:
-                return {"response": "provide target directory", "status": "falied"}
+                return {"response": "provide target directory", "status": "failed"}
         elif command == "read":
             """POST request
 
@@ -441,13 +464,13 @@ class Directory(Resource):
             """
             if target_directory == "null":
                 query = {
-                    "path": {"$regex": f"^{format_dir(CURRENT_DIR)}$"}
+                    "path": {"$regex": f"^{CURRENT_DIR}$"}
                 }
             else:
                 query = {
-                    "path": {"$regex": f"^{format_dir(target_directory)}$"},
+                    "path": {"$regex": f"^{target_directory}$"}
                 }
-            return pprint.pformat([element for element in db.my_collection.find(query)])  # try to use set to select unique items
+            return {"files": [elem['filename'] for elem in db.my_collection.find(query)], "response": "found files", "status": "success"}  # try to use set to select unique items
         elif command == "make":
             """POST request
 
@@ -458,13 +481,24 @@ class Directory(Resource):
 
             creates directory record
             """
-            item = {
-                "target_directory": format_dir(target_directory),
-                "datetime": datetime.datetime.now(),
-            }
-            db.my_collection.insert_one(item)
-            return {"status": "success",
-                    "response": "created directory"}
+            try:
+                query = {"path": target_directory}
+                if db.my_collection.find_one(query) is not None:
+                    return {"status": "failed", "response": "such directory exists"}
+                item = {
+                    "path": target_directory,
+                    "datetime": datetime.datetime.now(),
+                }
+                # if item["target_directory"] == -1:
+                    # return {"status": "failed",
+                            # "response": "server error"}
+
+                db.my_collection.insert_one(item)
+                return {"status": "success",
+                        "response": "created directory"}
+            except:
+                return {"status": "failed",
+                        "response": "server error"}
         elif command == "delete":
             """POST request
 
@@ -476,19 +510,24 @@ class Directory(Resource):
             checks whether that dir has files if not deletes that directory
             """
             query = {
-                "path": {"$regex": f"^{format_dir(target_directory)}"}
+                "path": {"$regex": f"^{target_directory}"}
             }
-            for element in db.my_collection.find(query):
-                for storage in element['storages']:
-                    message = SEPARATOR.join(["delete_dir", path])
-                    server_response = send_n_recv_message(storage,
-                                                          PORT,
-                                                          message)
-            db.my_collection.delete_one(query)
-            if check_server_response(server_response):
+            if len(list(db.my_collection.find(query))) == 1:
+                db.my_collection.delete_one(query)
                 return {"response": "deleted folder", "status": "success"}
             else:
-                return {"response": "no such directory", "status": "failed"}
+                # TODO: receive user permission
+                for element in db.my_collection.find(query):
+                    for storage in element['storages']:
+                        message = SEPARATOR.join(["delete_dir", path])
+                        server_response = send_n_recv_message(storage,
+                                                              PORT,
+                                                              message)
+                db.my_collection.delete_one(query)
+                if check_server_response(server_response):
+                    return {"response": "deleted folder", "status": "success"}
+                else:
+                    return {"response": "no such directory", "status": "failed"}
         else:
             return {"response": "incorrect command", "status": "failed"}
 
