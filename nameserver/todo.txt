@@ -1,14 +1,10 @@
 TODO:
 - create routes for each client request
-  - initialize: GET request =>return available size, set cur. dir. to root, namenode sends request to each storage server
-      route: nameserver:8080/init
 
 
 
 
-  - file create: POST request, client sends (filename, path, size) => nameserver makes request to storage server
-      route: nameserver:8080/file
-      add command=create, filename and path inside request
+
 
   - file write: POST request, client sends (filename, path) => nameserver sends (ips, port, new_filename) of available storage server, and newfilename in case such file exists
       route: nameserver:8080/file
