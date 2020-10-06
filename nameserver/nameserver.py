@@ -14,7 +14,7 @@ SEPARATOR = "<SEPARATOR>"
 
 CURRENT_DIR = "/var/storage/"
 
-PORT = "8080"
+PORT = 8080
 STORAGE_1 = "10.0.15.13"
 STORAGE_2 = "10.0.15.14"
 STORAGE_3 = "10.0.15.15"
@@ -42,12 +42,16 @@ parser_dir.add_argument('target_directory')
 
 
 def send_n_recv_message(ip, port, message):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((ip, port))
-        # send message to the socket
-        s.send(message.encode())
-        # receive message from server via socket
-        answer_message = s.recv(BUFFER_SIZE).decode()
+    answer_message = ""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((ip, port))
+            # send message to the socket
+            s.send(message.encode())
+            # receive message from server via socket
+            answer_message = s.recv(BUFFER_SIZE).decode()
+    except:
+        app.logger.info("connection from server refused")
     return answer_message
 
 
@@ -79,10 +83,8 @@ class Initialize(Resource):
         """GET request to init distributed file system
         Route: nameserver:8080/init
 
-        Returns
-        -------
-        Int
-            available disk size on file system
+        Returns:
+        int: available disk size on file system
         """
 
         global AVAILABLE_SIZE
@@ -92,8 +94,35 @@ class Initialize(Resource):
         for storage in STORAGES:
             # send request to initialize to each storage server
             size = send_n_recv_message(storage, PORT, "initialize")
-            AVAILABLE_SIZE += int(size)
+            if size.isdigit():
+                AVAILABLE_SIZE += int(size)
+            else:
+                app.logger.info("Storage Server returned non numerical size")
         return AVAILABLE_SIZE
+
+
+def check_server_response(message):
+    if message.split(SEPARATOR)[1] == "True":
+        return True
+    else:
+        return False
+
+
+def available_filename(filename, path):
+    counter = 0
+    query = {
+        "filename": filename,
+        "path": path
+    }
+    # CHECK CASE when file which same name exists
+    while db.my_collection.find_one(query):
+        split = filename.split(".")
+        new_filename = split[0] + f"({counter})" + split[1]
+        query = {
+            "filename": new_filename,
+            "path": path
+        }
+    return new_filename
 
 
 class File(Resource):
@@ -104,50 +133,110 @@ class File(Resource):
         path = args['path']
         size = args['size']
         new_directory = args['new_directory']
+        request_datetime = datetime.datetime.now()
 
         if command == "create":
-            """
-            POST request, client sends (filename, path, size) => nameserver makes request to storage server
-            route: nameserver:8080/file
-            add command=create, filename and path inside request
+            """POST request
+            Route: nameserver:8080/file
 
+            Args:
+                filename
+                path
+                size
+
+            Make request to storage servers
             """
             selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
-            for storage in selected_storages:
-                send_n_recv_message(storage, PORT, "create")  # handle output
-            return {"response": "success"}
+            new_filename = available_filename(filename, path)
+            message = SEPARATOR.join(["create_file", new_filename, " ".join(selected_storages)])
+            response = send_n_recv_message(selected_storages[0], PORT, message)
+            if check_server_response(response):
+                return {"response": "created a file",
+                        "status": "success"}
+            else:
+                return {"response": "server error",
+                        "status": "failed"}
         elif command == "write":
-            selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
-            # selected_storages = [STORAGE_1, STORAGE_2]  # used for debugging
-            request_datetime = datetime.datetime.now()
-            item = {
-                "path": path,
-                "filename": filename,
-                "storages": selected_storages,
-                "datetime": request_datetime,
-                "size": size
-            }
-            db.my_collection.insert_one(item)
-            response = {
-                "ip": selected_storages,
-                "port": PORT,
-                "new_filename": filename
-            }
+            """POST request
+            Route: nameserver:8080/file
+
+            Args:
+                filename
+                path
+
+            Returns:
+                ips of storage servers
+                ports of storage servers
+                filename|new_filename(if such file exists)
+            """
+            try:
+                selected_storages = select_storage_servers(STORAGES, REPLICA_NUM)
+                # selected_storages = [STORAGE_1, STORAGE_2]  # used for debugging
+
+                new_filename = available_filename(filename, path)
+                item = {
+                    "path": path,
+                    "filename": new_filename,
+                    "storages": selected_storages,
+                    "datetime": request_datetime,
+                    "size": size
+                }
+                db.my_collection.insert_one(item)
+                response = {
+                    "ip": selected_storages,
+                    "port": PORT,
+                    "new_filename": new_filename,
+                    "status": "success"
+                }
+            except:
+                response = {
+                    "response": "server error",
+                    "status": "success"
+                }
             return response
         elif command == "read":
+            """POST request
+
+            Route: nameserver:8080/file
+
+            Args:
+                filename
+                path
+
+            Returns:
+                ip
+                port
+            """
             query = {
                 "path": path,
                 "filename": filename
             }
             storages = []
-            for element in db.my_collection.find(query):
-                try:
-                    storages.append(element['storages'])
-                except Exception:
-                    pass
+            try:
+                for element in db.my_collection.find(query):
+                    storages.extend(element['storages'])
+            except Exception:
+                return {"status": "failed",
+                        "response": "server error"}
 
-            return {"ip": storages, "port": PORT}
+            return {"ip": storages,
+                    "port": PORT,
+                    "status": "success",
+                    "response": "record with file found"}
         elif command == "info":
+            """POST request
+
+            Route: nameserver:8080/file
+
+            Args:
+                filename
+                path
+
+            Returns:
+                ip
+                size
+                datetime
+            """
             query = {
                 "path": path,
                 "filename": filename
@@ -157,40 +246,113 @@ class File(Resource):
                     response = {
                         "ip": element['storages'],
                         "size": element['size'],
-                        "datetime": element['datetime']
+                        "datetime": element['datetime'],
+                        "status": "success",
+                        "response": "found record with this file"
                     }
                 except Exception:
                     response = {
-                        "response": "file not found"
+                        "response": "file not found",
+                        "status": "failed"
                     }
 
             return response
         elif command == "copy":
+            """POST request
+
+            Route: nameserver:8080/file
+
+            Args:
+                filename
+                path
+                new path
+
+            sends request to storage server copy command
+            """
             server_response = request_server("copy_file",
-                                             path, filename,
+                                             path + "/" + filename,
                                              new_directory)
-            return server_response
+            if check_server_response(server_response):
+                response = {
+                    "status": "success",
+                    "response": "copied file"
+                }
+            else:
+                response = {
+                    "status": "failed",
+                    "response": "server could not copy file"
+                }
+            return response
         elif command == "move":
+            """POST request
+
+            Route: nameserver:8080/file
+
+            Args:
+                filename
+                path
+                new path
+
+            sends request to storage server with move command
+            """
             server_response = request_server("move_file",
-                                             path,
-                                             filename,
+                                             path + "/" + filename,
                                              new_directory)
-            return server_response
+            if check_server_response(server_response):
+                response = {
+                    "status": "success",
+                    "response": "moved file"
+                }
+            else:
+                response = {
+                    "status": "failed",
+                    "response": "server could not move file"
+                }
+            return response
         elif command == "delete":
+            """DELETE request
+
+            Route: nameserver:8080/file
+
+            Args:
+                filename
+                path
+
+            sends request to storage server hosting that file
+            """
             query = {
                 "path": path,
                 "filename": filename
             }
-            for element in db.my_collection.find(query):
-                for storage in element['storages']:
-                    message = SEPARATOR.join(["delete_file", filename])
-                    server_response = send_n_recv_message(storage,
-                                                          PORT,
-                                                          message)
-            db.my_collection.delete_one(query)
-            return server_response
+            try:
+                for element in db.my_collection.find(query):
+                    for storage in element['storages']:
+                        message = SEPARATOR.join(["delete_file", filename])
+                        server_response = send_n_recv_message(storage,
+                                                              PORT,
+                                                              message)
+                db.my_collection.delete_one(query)
+                if check_server_response(server_response):
+                    response = {
+                        "status": "success",
+                        "response": "deleted file"
+                    }
+                else:
+                    response = {
+                        "status": "failed",
+                        "response": "server error please try again"
+                    }
+            except:
+                response = {
+                    "status": "failed",
+                    "response": "such file does not exist"
+                }
+            return response
         else:
-            return {"answer": "invalid command"}
+            return {
+                "response": "invalid command",
+                "status": "failed"
+            }
 
 
 def format_dir(directory):
@@ -198,6 +360,11 @@ def format_dir(directory):
 
 
 class Directory(Resource):
+    def get(self):
+        return {"response": "user's current directory",
+                "status": "success",
+                "current_directory": CURRENT_DIR}
+
     def post(self):
         global CURRENT_DIR
         args = parser_dir.parse_args()
@@ -206,12 +373,28 @@ class Directory(Resource):
         target_directory = args['target_directory']
 
         if command == "open":
+            """POST request
+
+            Route: nameserver:8080/dir
+
+            Args:
+                filename
+                path
+                target directory
+
+            nameserver updates client's directory tracker
+            """
             if target_directory != "null":
                 CURRENT_DIR = format_dir(target_directory)
-                return {"response": "done"}
+                return {"response": "successfully set new directory", "status": "success"}
             else:
-                return {"response": "provide target directory"}
+                return {"response": "provide target directory", "status": "falied"}
         elif command == "read":
+            """
+              - read directory: POST request, client sends (target directory) => nameserver returns all files in current directory
+              route: nameserver:8080/dir
+              add command=read, current directory inside request
+            """
             if target_directory == "null":
                 query = {
                     "path": {"$regex": f"^{format_dir(CURRENT_DIR)}$"}
@@ -222,12 +405,23 @@ class Directory(Resource):
                 }
             return pprint.pformat([element for element in db.my_collection.find(query)])  # try to use set to select unique items
         elif command == "make":
+            """
+            - make directory: POST request, client sends (target directory) => nameserver creates directory record
+              route: nameserver:8080/dir
+              add command=make, new directory inside request
+
+            """
             item = {
                 "path": format_dir(path),
                 "datetime": datetime.datetime.now(),
             }
             db.my_collection.insert_one(item)
         elif command == "delete":
+            """
+            - delete directory: POST request, client sends (directory) to delete => nameserver checks whether that dir has files if not deletes that directory
+              route: nameserver:8080/dir
+              add command=delete, directory
+            """
             query = {
                 "path": {"$regex": f"^{format_dir(target_directory)}"}
             }

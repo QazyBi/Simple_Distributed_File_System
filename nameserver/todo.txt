@@ -1,51 +1,7 @@
-TODO:
-- create routes for each client request
+Test create function when file with same name exists
 
+add a thread for checking servers state(ping each 10 seconds or something)
+check all query outputs 
+change db.my_collection.find(query) commands into db.my_collection.find_one(query)
 
-
-
-
-
-  - file write: POST request, client sends (filename, path) => nameserver sends (ips, port, new_filename) of available storage server, and newfilename in case such file exists
-      route: nameserver:8080/file
-      add command=write, filename and path inside request
-
-
-  - file read: POST request, client sends (filename, path) => nameserer sends (ip, port) of available storage server
-      route: nameserver:8080/file
-      add command=read, filename and path inside request
-
-  - file info: POST request, client sends (filename, path) => nameserver sends (size, storage server ip...)
-      route: nameserver:8080/file
-      add command=info, filename, path inside request
-
-  - file copy: POST request, client sends (filename, path, new path) => nameserver sends request to storage server copy command
-      route: nameserver:8080/file
-      add command=copy, filename and path inside request
-
-  - file move: POST request, client sends (filename, path, new path) => nameserver sends request to storage server with move command
-      route: nameserver:8080/file
-      add command=move, filename, path, and new path inside request
-
-  - file delete: DELETE request, client sends (filename, path) => nameserver sends request to storage server hosting that file
-      route: nameserver:8080/file
-      add filename and path inside request
-
-
-
-
-  - open directory: POST request, client sends (target directory) => nameserver updates client's directory tracker
-      route: nameserver:8080/dir
-      add command=open, filename, path, and new path inside request
-
-  - read directory: POST request, client sends (target directory) => nameserver returns all files in current directory
-      route: nameserver:8080/dir
-      add command=read, current directory inside request
-
-  - make directory: POST request, client sends (target directory) => nameserver creates directory record
-      route: nameserver:8080/dir
-      add command=make, new directory inside request
-
-  - delete directory: POST request, client sends (directory) to delete => nameserver checks whether that dir has files if not deletes that directory
-      route: nameserver:8080/dir
-      add command=delete, directory
+check what is the value of request fields when value for that field is not passed
