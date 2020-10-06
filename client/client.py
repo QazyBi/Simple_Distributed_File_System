@@ -9,13 +9,19 @@ namenode_IP = "10.0.15.12"
 port = 8080
 url = "http://" + namenode_IP + ":" + str(port)
 
-# not json format output
+
 def initialize():
     try:
         r = requests.get(url + "/init")
         try:
             j = r.json()
-            print("Available size{}".format(j['size']))
+            
+            if j['status'] == 'success':
+                print(j['response'])
+                print("Available size{}".format(j['size']))
+            elif j['status'] == 'failed':
+                print(j['response'])
+                
         except:
             print("can't read json")
     except:
@@ -82,7 +88,7 @@ def read_file(file):
     except:
         print('no connection')
 
-# no failed status and response in success case
+        
 def write_file(file):
     path, filename = os.path.split(file)
     size = os.stat(file).st_size
@@ -162,7 +168,7 @@ def file_info(file):
     except:
         print('no connection')
 
-# no case with no such directory
+
 def copy_file(file, new_dir):
     path, filename = os.path.split(file)
     try:
@@ -189,7 +195,7 @@ def copy_file(file, new_dir):
     except:
         print('no connection')
 
-# no case with no such directory
+
 def move_file(file, new_dir):
     path, filename = os.path.split(file)
     try:
@@ -237,10 +243,11 @@ def read_dir(target_directory):
         try:
             r = requests.post(url + "/dir", params={'command': 'read'})
             
-            try:
-                j = r.json()
-            except:
-                print("can't read json")
+            print(r)
+#             try:
+#                 j = r.json()
+#             except:
+#                 print("can't read json")
             
         except:
             print('no connection')
@@ -258,7 +265,7 @@ def read_dir(target_directory):
         except:
             print('no connection')
 
-# no response
+
 def make_dir(target_directory):
     try:
         r = requests.post(url + "/dir", params={'command': 'make', 'target_directory': target_directory})
