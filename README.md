@@ -11,11 +11,15 @@ params={'command': 'read', 'filename': filename, 'path': path}
 ```
 Client gets response from NameServer in JSON fromat. Example:
 ```
-j = r.json()
-size = j['size']
-storages = j['storages']
-datetime = j['datetime']
+response = {
+                        "ip": element['storages'],
+                        "size": element['size'],
+                        "datetime": element['datetime'],
+                        "status": "success",
+                        "response": "found record with this file"
+                    }
 ```
 ## 2. Description of communication between Client and StorageServer
-The communication happens via sockets.
+The communication, more precisely files transfer, happens via sockets.
 ## 3. Description of communication between NameServer and StorageServer
+The communication, more precisely messaging, happens via sockets.
