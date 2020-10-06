@@ -184,6 +184,7 @@ def copy_file(file, new_dir):
                 print(j['response'])
                 
                 if j['response'] == 'no such directory':
+                    print(j['response'])
                     make_dir(new_dir)
                     try:
                         r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_dir': new_dir})
@@ -289,7 +290,13 @@ def delete_dir(target_directory):
             j = r.json()
             
             if j['response'] == 'no permission':
-                r = requests.post(url + "/dir", params={'command': 'delete', 'target_directory': target_directory})
+                print(j['response'])
+                
+                try:
+                    r = requests.post(url + "/dir", params={'command': 'delete', 'target_directory': target_directory, 'current_directory': 'yes'})
+                except:
+                    print('no connection')
+                
             else:
                 print(j['response'])
             
