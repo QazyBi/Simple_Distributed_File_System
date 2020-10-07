@@ -37,7 +37,7 @@ Connection when client connects nameserver only
 ---
 ![client nameserver only](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_nameserver_only.jpg)
 # Description of communication protocols
-We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them.
+We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them. We used port 8080 to communicate.
 ## Description of communication between Client and NameServer
 The communication happens via GET and POST methods. Several examples:
 ```
@@ -74,7 +74,7 @@ s.sendall(message.encode())
 s.sendall("<DONE>".encode())
 ```
 # Contribution of each team member
-![1](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/1.png)
-Qazybek was working on NameServer.
-Fadi - on StorageServers.
-Dinar - on Client.
+![1](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/1.png) <br />
+Qazybek was working on NameServer. <br />
+Fadi - on StorageServers. <br />
+Dinar - on Client. <br />
