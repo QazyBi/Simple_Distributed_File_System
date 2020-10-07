@@ -1,7 +1,16 @@
 # How to launch and use system
 # Architectural diagrams
+
+Connection when client connects nameserver and nameserver connect with storages 
+---
 ![client nameserver storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_nameserver_storage.png)
+
+Connection when client upload or download files from storage servers
+---
 ![client storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_storage.png)
+
+Connection when client connects nameserver only
+---
 ![client nameserver only](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/nameserver_client_only.png)
 # Description of communication protocols
 We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them.
