@@ -74,3 +74,4 @@ s.sendall(message.encode())
 s.sendall("<DONE>".encode())
 ```
 # Contribution of each team member
+![1](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/1.png)
