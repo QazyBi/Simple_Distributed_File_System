@@ -32,15 +32,15 @@ docker build -t storage_server . && docker run -d --network=host -t storage_serv
 
 Connection when client connects nameserver and nameserver connect with storages 
 ---
-![client nameserver storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_nameserver_storage.png)
+![client nameserver storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_nameserver_storage.jpg)
 
 Connection when client upload or download files from storage servers
 ---
-![client storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_storage.png)
+![client storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_storage.jpg)
 
 Connection when client connects nameserver only
 ---
-![client nameserver only](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/nameserver_client_only.png)
+![client nameserver only](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/nameserver_client_only.jpg)
 # Description of communication protocols
 We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them.
 ## Description of communication between Client and NameServer
