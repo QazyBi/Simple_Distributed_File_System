@@ -20,12 +20,16 @@ docker-compose up
 ## To Launch Client
 Create a docker image from folder nameserver
 ```
-docker build . -t client && docker run -d --network=host -t client
+docker run -d --network=host -t dinarzayahov/dfs-repo:client
 ```
 
 ## To Launch Storage Server
 ```
-docker build -t storage_server . && docker run -d --network=host -t storage_server
+docker run -d --network=host -t dinarzayahov/dfs-repo:storage
+```
+Storage Server can also be run in normal mode where you can read the logs
+```
+docker run --network=host -t dinarzayahov/dfs-repo:storage
 ```
 
 # Architectural diagrams
