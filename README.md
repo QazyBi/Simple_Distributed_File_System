@@ -1,3 +1,8 @@
+# What is a distributed file system (DFS)
+A distributed file system (DFS) is a file system with data stored on a server. The data is accessed and processed as if it was stored on the local client machine.
+
+In this project, we implemented a distributed file system from scratch with the use of sockets and GET & POST requests for the machines to communicate between each other through port 8080. The DFS keeps 2 replicas of each file on 2 different storage servers.
+
 # How to launch and use system
 Clone project
 ```
@@ -15,7 +20,7 @@ docker-compose up
 ## To Launch Client
 Create a docker image from folder nameserver
 ```
-docker run dinarzayahov/dfs-repo:client
+docker build . -t client && docker run -d --network=host -t client
 ```
 
 ## To Launch Storage Server
@@ -27,17 +32,17 @@ docker build -t storage_server . && docker run -d --network=host -t storage_serv
 
 Connection when client connects nameserver and nameserver connect with storages 
 ---
-![client nameserver storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_nameserver_storage.jpg)
+![client nameserver storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_nameserver_storage.png)
 
 Connection when client upload or download files from storage servers
 ---
-![client storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_storage.jpg)
+![client storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_storage.png)
 
 Connection when client connects nameserver only
 ---
-![client nameserver only](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_nameserver_only.jpg)
+![client nameserver only](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/nameserver_client_only.png)
 # Description of communication protocols
-We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them. We used port 8080 to communicate.
+We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them.
 ## Description of communication between Client and NameServer
 The communication happens via GET and POST methods. Several examples:
 ```
@@ -62,8 +67,8 @@ response = {
 The communication, more precisely files transfer, happens via sockets. It's a common and good way to transfer big files. Moreover we practiced it during lab. Example:
 ```
 s = socket.socket()
+s.listen(5)
 conn, addr = s.accept()
-conn.send(outcoming_stream)
 data = conn.recv(BUFFER_SIZE)
 ```
 ## Description of communication between NameServer and StorageServer
@@ -74,7 +79,8 @@ s.sendall(message.encode())
 s.sendall("<DONE>".encode())
 ```
 # Contribution of each team member
-![1](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/1.png) <br />
-Qazybek was working on NameServer. <br />
-Fadi - on StorageServers. <br />
-Dinar - on Client. <br />
+Storage server was implemented by Fadi Younes
+Namenode server was implemented by Qazybek Asqarbek
+Client server was implemented by Dinar Zayahov
+
+![1](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/1.png)
