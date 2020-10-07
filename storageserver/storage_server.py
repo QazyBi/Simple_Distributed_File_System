@@ -286,7 +286,7 @@ send an acknowledgement message to the target server
 def acknowledgement(c, message):
 	# merge message using SEPARATOR
 	message = SEPARATOR.join([str(i) for i in message])
-	print(message)
+
 	# send acknowledgement message
 	c.sendall(message.encode())
 
