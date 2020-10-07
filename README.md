@@ -1,4 +1,7 @@
+# How to launch and use system
+# Architectural diagrams
 # Description of communication protocols
+We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them.
 ## 1. Description of communication between Client and NameServer
 The communication happens via GET and POST methods. Several examples:
 ```
@@ -28,4 +31,10 @@ conn.send(outcoming_stream)
 data = conn.recv(BUFFER_SIZE)
 ```
 ## 3. Description of communication between NameServer and StorageServer
-The communication, more precisely messaging, happens via sockets.
+The communication, more precisely messaging, happens via sockets. StorageServer already was written using sockets, that's why NameServer used sockets to communicate with storages. Example:
+```
+s.connect((ip, port))
+s.sendall(message.encode())
+s.sendall("<DONE>".encode())
+```
+# Contribution of each team member
