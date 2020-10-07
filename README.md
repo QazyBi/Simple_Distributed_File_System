@@ -15,7 +15,7 @@ docker-compose up
 ## To Launch Client
 Create a docker image from folder nameserver
 ```
-docker build . -t client && docker run -d --network=host -t client
+docker run dinarzayahov/dfs-repo:client
 ```
 
 ## To Launch Storage Server
@@ -75,3 +75,6 @@ s.sendall("<DONE>".encode())
 ```
 # Contribution of each team member
 ![1](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/1.png)
+Qazybek was working on NameServer.
+Fadi - on StorageServers.
+Dinar - on Client.
