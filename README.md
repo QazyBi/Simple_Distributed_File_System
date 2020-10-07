@@ -1,4 +1,28 @@
 # How to launch and use system
+Clone project
+```
+git clone https://github.com/QazyBi/Simple_Distributed_File_System.git
+```
+### To Launch Nameserver
+Create a docker image from folder nameserver
+```
+docker build . -t nameserver
+```
+Run docker services of MongoDB and Python image
+```
+docker-compose up
+```
+### To Launch Client
+Create a docker image from folder nameserver
+```
+docker build . -t client && docker run -d --network=host -t client
+```
+
+### To Launch Storage Server
+```
+docker build -t storage_server . && docker run -d --network=host -t storage_server
+```
+
 # Architectural diagrams
 
 Connection when client connects nameserver and nameserver connect with storages 
