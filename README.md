@@ -79,8 +79,10 @@ s.sendall(message.encode())
 s.sendall("<DONE>".encode())
 ```
 # Contribution of each team member
-Storage server was implemented by Fadi Younes
+Storage server was implemented by Fadi Younes 
+
 Namenode server was implemented by Qazybek Asqarbek
+
 Client server was implemented by Dinar Zayahov
 
 ![1](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/1.png)
