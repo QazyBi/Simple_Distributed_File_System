@@ -18,7 +18,7 @@ def initialize():
             
             if j['status'] == 'success':
                 print(j['response'])
-                print("Available size{}".format(j['size']))
+                print("Available size {} MB".format(j['size']))
             elif j['status'] == 'failed':
                 print(j['response'])
                 
@@ -58,8 +58,8 @@ def read_file(file):
                 try:
                     s = socket.socket()
                     s.connect((ip, port))
-                    f = open(file, "w")
-                    outcoming_stream = 'read_file' + SEPARATOR + filename
+                    f = open(filename, "w")
+                    outcoming_stream = 'read_file' + SEPARATOR + path + '/' + filename
                     s.sendall(outcoming_stream.encode())
                     s.sendall("<DONE>".encode())
                     incoming_stream = ''
@@ -88,7 +88,7 @@ def read_file(file):
     except:
         print('no connection')
 
-# creating files with the same name !!!!        
+        
 def write_file(file):
     path, filename = os.path.split(file)
     size = os.stat(file).st_size
@@ -153,12 +153,11 @@ def file_info(file):
             
             if j['status'] == 'success':
                 print(j['response'])
-#                 print(j)
                 size = j['size']
                 storages = j['storages']
                 datetime = j['datetime']
-                print("File size {}\n".format(size))
-                print("Time {}\n".format(datetime))
+                print("File size {}".format(size))
+                print("Time {}".format(datetime))
                 print("Storages ")
                 print(storages)
             elif j['status'] == 'failed':
@@ -173,6 +172,7 @@ def file_info(file):
 
 def copy_file(file, new_dir):
     path, filename = os.path.split(file)
+    size = os.stat(file).st_size
     try:
         r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_directory': new_dir})
         
@@ -183,16 +183,6 @@ def copy_file(file, new_dir):
                 print(j['response'])
             elif j['status'] == 'failed':
                 print(j['response'])
-                
-                if j['response'] == 'no such directory':
-                    print(j['response'])
-                    make_dir(new_dir)
-                    try:
-                        r = requests.post(url + "/file", params={'command': 'copy', 'filename': filename, 'path': path, 'new_directory': new_dir})
-                        j = r.json()
-                        print(j['response'])
-                    except:
-                        print('no connection')
             
         except:
             print("can't read json")
@@ -294,21 +284,31 @@ def delete_dir(target_directory):
         
         try:
             j = r.json()
-            print(j['response'])
             
             if j['response'] == 'no permission':
                 print(j['response'])
+                permission = input("Do you want to delete directory with files? yes/no\n")
+                print(permission)
                 
-                try:
-                    r = requests.post(url + "/dir", params={'command': 'delete', 'target_directory': target_directory, 'current_directory': 'yes'})
-                except:
-                    print('no connection')
+                if permission == 'yes':
+                    
+                    try:
+                        r = requests.post(url + "/dir", params={'command': 'delete', 'target_directory': target_directory, 'current_directory': permission})
+
+                        try:
+                            j = r.json()
+                            print(j['response'])
+                        except:
+                            print("can't read json2")
+
+                    except:
+                        print('no connection')
                 
             else:
                 print(j['response'])
             
         except:
-            print("can't read json")
+            print("can't read json1")
         
     except:
         print('no connection')
@@ -346,9 +346,9 @@ while True:
             initialize()
         elif command == "touch":
             create_file(arguments[1])
-        elif command == "read_file":
+        elif command == "download":
             read_file(arguments[1])
-        elif command == "write_file":
+        elif command == "upload":
             write_file(arguments[1])
         elif command == "rm" and arguments[1] != "-r":
             delete_file(arguments[1])
@@ -373,5 +373,7 @@ while True:
             break
         elif command =="test":
             test(arguments[1])
+        else:
+            print("No such a command")
     except IndexError:
         print('need arguments')
