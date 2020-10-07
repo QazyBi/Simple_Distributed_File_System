@@ -13,8 +13,8 @@ REPLICA_NUM = 2
 BUFFER_SIZE = 1024
 SEPARATOR = "<SEPARATOR>"
 
-CURRENT_DIR = "/var/storage/"
-ROOT_DIR = "/var/storage/"
+CURRENT_DIR = ""
+ROOT_DIR = ""
 
 PORT = 8080
 STORAGE_1 = "10.0.15.13"
@@ -29,9 +29,6 @@ mongo = MongoClient(URI)
 db = mongo.index
 app = Flask(__name__)
 api = Api(app)
-
-temp = {"path": CURRENT_DIR, "datetime": datetime.datetime.now()}
-db.my_collection.insert_one(temp)
 
 parser = reqparse.RequestParser()
 parser.add_argument('command')
@@ -125,7 +122,7 @@ def available_filename(filename, path):
 
 def format_dir(directory):
     if directory:
-        return directory if directory[-1] == "/" else directory + "/"
+        return directory[:-1] if directory[-1] == "/" else directory
     else:
         return -1
 
@@ -149,7 +146,11 @@ class Initialize(Resource):
         global AVAILABLE_SIZE
         global CURRENT_DIR
         AVAILABLE_SIZE = 0
-        CURRENT_DIR = "/var/storage/"
+        CURRENT_DIR = ""
+        # delete all records inside collection
+        db.my_collection.delete_many({})
+        temp = {"path": CURRENT_DIR, "datetime": datetime.datetime.now()}
+        db.my_collection.insert_one(temp)
         for storage in STORAGES:
             # send request to initialize to each storage server
             server_response = send_n_recv_message(storage, PORT, "initialize").split(SEPARATOR)
@@ -201,7 +202,7 @@ class File(Resource):
             }
             db.my_collection.insert_one(item)
 
-            message = SEPARATOR.join(["create_file", new_filename, " ".join(selected_storages[1:])])
+            message = SEPARATOR.join(["create_file", CURRENT_DIR + path + "/" + new_filename, " ".join(selected_storages[1:])])
             response = send_n_recv_message(selected_storages[0], PORT, message)
             if check_server_response(response):
                 return {"response": "created a file",
@@ -292,7 +293,7 @@ class File(Resource):
                 datetime
             """
             query = {
-                "path": CURRENT_DIR,
+                "path": CURRENT_DIR + path,
                 "filename": filename
             }
             response = {"response": "server error", "status": "failed"}
@@ -358,7 +359,7 @@ class File(Resource):
             sends request to storage server with move command
             """
             server_response = request_server("move_file",
-                                             CURRENT_DIR,
+                                             CURRENT_DIR+path,
                                              new_directory)
             if check_server_response(server_response):
                 response = {
@@ -442,13 +443,20 @@ class Directory(Resource):
 
             nameserver updates client's directory tracker
             """
-            if target_directory != "null":
-                query = {"path": target_directory}
-                if db.my_collection.find_one(query) is not None:
-                    CURRENT_DIR = format_dir(target_directory)
-                    return {"response": "successfully set new directory", "status": "success"}
+            if target_directory:
+                if target_directory == "..":
+                    if CURRENT_DIR == ROOT_DIR:
+                        return {"response": "no parent directory found", "status": "failed"}
+                    else:
+                        CURRENT_DIR = "/".join(CURRENT_DIR.split("/")[:-1])
+                        return {"response": "successfully set new directory", "status": "success"}
                 else:
-                    return {"response": "no such directory", "status": "failed"}
+                    query = {"path": target_directory}
+                    if db.my_collection.find_one(query) is not None:
+                        CURRENT_DIR = format_dir(target_directory)
+                        return {"response": "successfully set new directory", "status": "success"}
+                    else:
+                        return {"response": "no such directory", "status": "failed"}
             else:
                 return {"response": "provide target directory", "status": "failed"}
         elif command == "read":
@@ -462,7 +470,8 @@ class Directory(Resource):
             Returns:
                 all files in current directory
             """
-            if target_directory == "null":
+            app.logger.info("*%s* DIR", target_directory)
+            if target_directory is None or target_directory == "":
                 query = {
                     "path": {"$regex": f"^{CURRENT_DIR}$"}
                 }
@@ -470,7 +479,18 @@ class Directory(Resource):
                 query = {
                     "path": {"$regex": f"^{target_directory}$"}
                 }
-            return {"files": [elem['filename'] for elem in db.my_collection.find(query)], "response": "found files", "status": "success"}  # try to use set to select unique items
+            files_dirs = []
+            for elem in db.my_collection.find(query):
+                try:
+                    file = elem['filename']
+                    files_dirs.append(file)
+                except:
+                    directory = elem['path']
+                    files_dirs.append(directory)
+
+                return {"files": list(set(files_dirs)),
+                        "response": "found files",
+                        "status": "success"}
         elif command == "make":
             """POST request
 
@@ -482,11 +502,11 @@ class Directory(Resource):
             creates directory record
             """
             try:
-                query = {"path": target_directory}
+                query = {"path": CURRENT_DIR + target_directory}
                 if db.my_collection.find_one(query) is not None:
                     return {"status": "failed", "response": "such directory exists"}
                 item = {
-                    "path": target_directory,
+                    "path": CURRENT_DIR + target_directory,
                     "datetime": datetime.datetime.now(),
                 }
                 # if item["target_directory"] == -1:
@@ -510,24 +530,42 @@ class Directory(Resource):
             checks whether that dir has files if not deletes that directory
             """
             query = {
-                "path": {"$regex": f"^{target_directory}"}
+                "path": {"$regex": f"^{CURRENT_DIR + target_directory}"}
             }
-            if len(list(db.my_collection.find(query))) == 1:
-                db.my_collection.delete_one(query)
-                return {"response": "deleted folder", "status": "success"}
-            else:
-                # TODO: receive user permission
-                for element in db.my_collection.find(query):
-                    for storage in element['storages']:
-                        message = SEPARATOR.join(["delete_dir", path])
-                        server_response = send_n_recv_message(storage,
-                                                              PORT,
-                                                              message)
-                db.my_collection.delete_one(query)
-                if check_server_response(server_response):
-                    return {"response": "deleted folder", "status": "success"}
-                else:
-                    return {"response": "no such directory", "status": "failed"}
+
+            new_path = path if path[0] == "/" else "/" + path
+
+            for storage in STORAGES:
+                message = SEPARATOR.join(["delete_dir", CURRENT_DIR + new_path])
+                server_response = send_n_recv_message(storage,
+                                                      PORT,
+                                                      message)
+
+                if server_response.split(SEPARATOR)[1] == "False":
+                    return {"response": "no permission", "status": "failed"}
+
+            db.my_collection.delete_many(query)
+            return {"response": "successfully deleted", "status": "success"}
+
+            # if len(list(db.my_collection.find(query))) == 1:
+            #     db.my_collection.delete_one(query)
+            #     return {"response": "deleted folder", "status": "success"}
+            # else:
+            #     if path == "yes":
+            #         # TODO: receive user permission
+            #         for element in db.my_collection.find(query):
+            #             for storage in element['storages']:
+            #                 message = SEPARATOR.join(["delete_dir", path])
+            #                 server_response = send_n_recv_message(storage,
+            #                                                       PORT,
+            #                                                       message)
+            #         db.my_collection.delete_many(query)
+            #         if check_server_response(server_response):
+            #             return {"response": "deleted folder", "status": "success"}
+            #         else:
+            #             return {"response": "no such directory", "status": "failed"}
+            #     else:
+            #         return {"response": "no permission", "status": "failed"}
         else:
             return {"response": "incorrect command", "status": "failed"}
 
