@@ -38,7 +38,7 @@ then replicas it on the nodes with the specified IPs.
 If the procedure was done succefully, it returns True. Otherwise, it returns
 a message with the error as a string.
 '''
-def create_file(filename, IPs = [], data = None):
+def create_file(filename, IPs = [], data = ''):
 	# handle the empty filename case
 	if filename == '':
 		return ("Error: filename can't be an empty string", False)
@@ -62,30 +62,21 @@ def create_file(filename, IPs = [], data = None):
 	else:
 		path = '/'.join(path[:-1])
 
-	# create directory if doesn't exist
+	# create the directory if doesn't exit
 	if not os.path.isdir(path):
 		os.makedirs(path)
 
-	if data == None:
-		# create an empty file
-		with open(full_path, 'w') as file: 
-			pass
-	else:
-		# create a file with data
-		with open(full_path, 'w') as file:
-			file.write(data)
+	# create a file with data. If data = '', then it's an empty file
+	with open(full_path, 'w') as file:
+		file.write(data)
 		
-	print(f'second IPS are {IPs}')
-
 	# replicate the file on the remaining IPs
 	if len(IPs) > 0:
-		next_IP = IPs[0]
-		print(f'next IP is {next_IP}')
 		try:
 			s = socket.socket()
-			s.connect((next_IP, 8080))
+			s.connect((IPs[0], 8080))
 
-			message = SEPARATOR.join(['create_file', filename, ' '.join(IPs[1: ])])
+			message = SEPARATOR.join(['create_file', filename, ' '.join(IPs[1: ]), data])
 			s.sendall(message.encode())
 			s.sendall('<DONE>'.encode())
 
@@ -96,7 +87,7 @@ def create_file(filename, IPs = [], data = None):
 			else:
 				return (response[0], False)
 		except:
-			return (f"Error: couldn't connect to IP -{IPs[0]}-{next_IP}-", False)
+			return (f"Error: couldn't connect to IP {IPs[0]}", False)
 
 	return ('<DONE>', True)
 
@@ -133,7 +124,7 @@ then replicas it on the nodes with the specified IPs.
 If the procedure was done succefully, it returns True. Otherwise, it returns
 a message with the error as a string.
 '''
-def write_file(filename, IPs = [], data = None):
+def write_file(filename, IPs = [], data = ''):
 	return create_file(filename, IPs, data)
 
 '''
@@ -248,48 +239,91 @@ def delete_dir(path, permission = False):
 			return ("Error: {} is a file".format(path), False)
 		else:
 			# return an error if the folder isn't empty and no permission given 
-			size, _ = disk_size(full_path)
-			if size != 0 and permission == False:
+			_, flag = get_directory_size(full_path)
+			if flag == True and permission == False:
 				return ("Error: permission need because {} contains files".format(path), False)
 
 			shutil.rmtree(full_path)
 			return ('<DONE>', True)
 	else:
-		return ("Erorr: {} does not exist".format(filename), False)
+		return ('<DONE>', True)
 
 '''
-return the availbe disk size
+return the size of files in a given directory and whether or not it contains a file
 '''
-def disk_size(directory):
+def get_directory_size(directory):
     """Returns the `directory` size in bytes."""
     total = 0
+    flag = False
     try:
         # print("[+] Getting the size of", directory)
         for entry in os.scandir(directory):
             if entry.is_file():
                 # if it's a file, use stat() function
                 total += entry.stat().st_size
+                flag = True
             elif entry.is_dir():
                 # if it's a directory, recursively call this function
-                total += get_directory_size(entry.path)
+                temp = get_directory_size(entry.path)
+                total += temp[0]
+                flag = max(flag, temp[1])
     except NotADirectoryError:
         # if `directory` isn't a directory, get the file size then
         return os.path.getsize(directory)
     except PermissionError:
         # if for whatever reason we can't open the folder, return 0
         return 0
-    return (str(2048 - total), True)
+    return (total, flag)
+
+'''
+return the availbe disk size
+'''
+def disk_size():
+	return (str(2048 - get_directory_size(main_path)[0]), True)
+
+'''
+copys the file with filename to a new server
+returns True if it was done succefully. Otherwise it returns the error
+'''
+def copy_to_server(filename, IP):
+	data, flag = read_file(filename)
+
+	if flag == True:
+		try:
+			s = socket.socket()
+			s.connect((IP, 8080))
+
+			message = SEPARATOR.join(['create_file', filename, '', data])
+			s.sendall(message.encode())
+			s.sendall('<DONE>'.encode())
+
+			response = s.recv(BUFFER_SIZE).decode().split(SEPARATOR)
+
+			if response[1] == 'True':
+				return (response[0], True)
+			else:
+				return (response[0], False)
+		except:
+			return (f"Error: couldn't connect to IP {IPs[0]}", False)
+
+		return ('<DONE>', True)
+	else:
+		return (data, False)
 
 '''
 send an acknowledgement message to the target server
 '''
 def acknowledgement(c, message):
+	if message[1]:
+		print('The command was excuted succefully!')
+	else:
+		print(message[0])
+
 	# merge message using SEPARATOR
 	message = SEPARATOR.join([str(i) for i in message])
 
 	# send acknowledgement message
 	c.sendall(message.encode())
-
 
 
 # initialize the server automatically whenever it's turned on
@@ -319,7 +353,6 @@ while True:
 	stream = ''
 	while True:
 		data = c.recv(BUFFER_SIZE)
-		print(stream)
 		if data.decode()[-6: ] == '<DONE>':
 			break
 		stream += data.decode()
@@ -328,7 +361,7 @@ while True:
 	parameters = stream.split(SEPARATOR)
 	command = parameters[0]
 
-	print(command)
+	print(f'Recieved the follwoing command: {command}')
 
 	if command == 'initialize':
 		acknowledgement(c, initialize())
@@ -339,7 +372,6 @@ while True:
 			IPs = []
 		else:
 			IPs = parameters[2].split(' ')
-		print(f'first IPS are {IPs}')
 		acknowledgement(c, create_file(filename, IPs))
 
 	elif command == 'read_file':
@@ -375,15 +407,25 @@ while True:
 	
 	elif command == 'delete_dir':
 		path = parameters[1]
-		acknowledgement(c, delete_dir(path))
+		permission = False
+		if len(parameters) > 2 and parameters[2] == 'yes':
+			permission = True
+		acknowledgement(c, delete_dir(path, permission))
 
 	elif command == 'disk_size':
-		acknowledgement(c, disk_size('/data'))
+		acknowledgement(c, disk_size())
 
+	elif command == 'ping':
+		acknowledgement(c, ('echo', True))
+
+	elif command == 'copy_to_server':
+		filename = parameters[1]
+		IP = parameters[2]
+		acknowledgement(c, copy_to_server(filename, IP))
 	else:
 		acknowledgement(c, ('Error: no such a command!', False))
 
-	c.shutdown(socket.SHUT_WR)
+	print('')
 	c.close()
 
 
