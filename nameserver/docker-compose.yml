@@ -2,7 +2,7 @@ version: "3"
 
 services:
     nameserver:
-        image: nameserver:latest
+        image: dinarzayahov/dfs-repo:nameserver
         deploy:
             replicas: 1
             restart_policy:
