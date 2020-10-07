@@ -1,5 +1,8 @@
 # How to launch and use system
 # Architectural diagrams
+![client nameserver storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_nameserver_storage.png)
+![client storage](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/client_storage.png)
+![client nameserver only](https://github.com/QazyBi/Simple_Distributed_File_System/blob/main/img/nameserver_client_only.png)
 # Description of communication protocols
 We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them.
 ## 1. Description of communication between Client and NameServer
