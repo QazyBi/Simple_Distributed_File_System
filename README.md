@@ -1,3 +1,5 @@
+# How to launch and use system
+# Architectural diagrams
 # Description of communication protocols
 We used 2 ways of communication: HTTP methods and sockets; to compare and work with both of them.
 ## 1. Description of communication between Client and NameServer
@@ -35,3 +37,4 @@ s.connect((ip, port))
 s.sendall(message.encode())
 s.sendall("<DONE>".encode())
 ```
+# Contribution of each team member
