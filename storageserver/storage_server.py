@@ -76,32 +76,32 @@ def create_file(filename, IPs=[], data=''):
     return ('<DONE>', True)
 
 
-def read_file(filename):
-    '''
-    Reads the file <filename> and returns its contiant.
-    Returns an error meassage as a string if something wrong happens
-    '''
-    # handle the empty filename case
-    if filename == '':
-        return ("Error: filename can't be an empty string", False)
+# def read_file(filename):
+#     '''
+#     Reads the file <filename> and returns its contiant.
+#     Returns an error meassage as a string if something wrong happens
+#     '''
+#     # handle the empty filename case
+#     if filename == '':
+#         return ("Error: filename can't be an empty string", False)
 
-    # get rid of '/' at the beginning
-    if filename[0] == '/':
-        filename = filename[1:]
+#     # get rid of '/' at the beginning
+#     if filename[0] == '/':
+#         filename = filename[1:]
 
-    full_path = main_path + '/' + filename  # full path in the local machine to read/write files
+#     full_path = main_path + '/' + filename  # full path in the local machine to read/write files
 
-    if os.path.exists(full_path):
-        if os.path.isdir(full_path):
-            return ("Error: {} is a directory".format(filename), False)
-        else:
-            with open(full_path, 'r') as file:
-                ret = ''
-                for line in file:
-                    ret += line
-            return (ret, True)
-    else:
-        return ("Erorr: {} does not exist".format(filename), False)
+#     if os.path.exists(full_path):
+#         if os.path.isdir(full_path):
+#             return ("Error: {} is a directory".format(filename), False)
+#         else:
+#             with open(full_path, 'r') as file:
+#                 ret = ''
+#                 for line in file:
+#                     ret += line
+#             return (ret, True)
+#     else:
+#         return ("Erorr: {} does not exist".format(filename), False)
 
 
 def write_file(filename, IPs=[], data=''):
@@ -131,6 +131,36 @@ def copy_file(filename, target_filename):
 
     # write the continat of <filename> to <target_filename>
     return write_file(target_filename, IPs=[], data=message)
+
+
+def copy_to_server(filename, IP):
+    '''
+    copys the file with filename to a new server
+    returns True if it was done succefully. Otherwise it returns the error
+    '''
+    data, flag = read_file(filename)
+
+    if flag:
+        try:
+            s = socket.socket()
+            s.connect((IP, 8080))
+
+            message = SEPARATOR.join(['create_file', filename, '', data])
+            s.sendall(message.encode())
+            s.sendall('<DONE>'.encode())
+
+            response = s.recv(BUFFER_SIZE).decode().split(SEPARATOR)
+
+            if response[1] == 'True':
+                return (response[0], True)
+            else:
+                return (response[0], False)
+        except:
+            return (f"Error: couldn't connect to IP {IP[0]}", False)
+
+        return ('<DONE>', True)
+    else:
+        return (data, False)
 
 
 def move_file(filename, target_filename):
@@ -208,7 +238,7 @@ def read_dir(path):
         else:
             return (' '.join(os.listdir(full_path)), True)
     else:
-        return ("Erorr: {} does not exist".format(path), False)
+        return ("Error: {} does not exist".format(path), False)
 
 
 def delete_dir(path, permission=False):
@@ -276,40 +306,6 @@ def disk_size():
     return (str(2048 - get_directory_size(main_path)[0]), True)
 
 
-def copy_to_server(filename, IP):
-    '''
-    copys the file with filename to a new server
-    returns True if it was done succefully. Otherwise it returns the error
-    '''
-    data, flag = read_file(filename)
-
-    if flag:
-        try:
-            s = socket.socket()
-            s.connect((IP, 8080))
-
-            message = SEPARATOR.join(['create_file', filename, '', data])
-            s.sendall(message.encode())
-            s.sendall('<DONE>'.encode())
-
-            response = s.recv(BUFFER_SIZE).decode().split(SEPARATOR)
-
-            if response[1] == 'True':
-                return (response[0], True)
-            else:
-                return (response[0], False)
-        except:
-            return (f"Error: couldn't connect to IP {IP[0]}", False)
-
-        return ('<DONE>', True)
-    else:
-        return (data, False)
-
-
-def list_dir(path):
-    pass
-
-
 @app.route("/init", methods=['GET'])
 def initialize():
     global initialized
@@ -317,7 +313,8 @@ def initialize():
     global availabe_size
 
     initialized = True
-    main_path = '/home/qazybek/Development/GitHub/f20/ds/TEMP_PROJECT/Simple_Distributed_File_System/s3/data'
+    dirname = os.path.dirname(__file__)
+    main_path = os.path.join(dirname, 'data')
     availabe_size = 1024 * 2  # availabe disk size on the storage server in MB
 
     # remove the directory if it exists
@@ -394,7 +391,7 @@ def dir_route(path):
         return response
 
     else:
-        response = {"response": list_dir(path)}
+        response = {"response": read_dir(path)}
         return response
 
 
