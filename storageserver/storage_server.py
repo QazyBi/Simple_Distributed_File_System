@@ -1,6 +1,7 @@
 from flask import Flask, request
 import os
 import shutil
+import socket
 
 
 initialized = False
@@ -76,32 +77,33 @@ def create_file(filename, IPs=[], data=''):
     return ('<DONE>', True)
 
 
-# def read_file(filename):
-#     '''
-#     Reads the file <filename> and returns its contiant.
-#     Returns an error meassage as a string if something wrong happens
-#     '''
-#     # handle the empty filename case
-#     if filename == '':
-#         return ("Error: filename can't be an empty string", False)
+# remove later
+def read_file(filename):
+    '''
+    Reads the file <filename> and returns its contiant.
+    Returns an error meassage as a string if something wrong happens
+    '''
+    # handle the empty filename case
+    if filename == '':
+        return ("Error: filename can't be an empty string", False)
 
-#     # get rid of '/' at the beginning
-#     if filename[0] == '/':
-#         filename = filename[1:]
+    # get rid of '/' at the beginning
+    if filename[0] == '/':
+        filename = filename[1:]
 
-#     full_path = main_path + '/' + filename  # full path in the local machine to read/write files
+    full_path = main_path + '/' + filename  # full path in the local machine to read/write files
 
-#     if os.path.exists(full_path):
-#         if os.path.isdir(full_path):
-#             return ("Error: {} is a directory".format(filename), False)
-#         else:
-#             with open(full_path, 'r') as file:
-#                 ret = ''
-#                 for line in file:
-#                     ret += line
-#             return (ret, True)
-#     else:
-#         return ("Erorr: {} does not exist".format(filename), False)
+    if os.path.exists(full_path):
+        if os.path.isdir(full_path):
+            return ("Error: {} is a directory".format(filename), False)
+        else:
+            with open(full_path, 'r') as file:
+                ret = ''
+                for line in file:
+                    ret += line
+            return (ret, True)
+    else:
+        return ("Erorr: {} does not exist".format(filename), False)
 
 
 def write_file(filename, IPs=[], data=''):
