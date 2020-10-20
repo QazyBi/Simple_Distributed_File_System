@@ -26,6 +26,6 @@ jobs:
         pip install -r requirements.txt; 
     - name: Test with unittest
       run: |
-        coverage run storageserver/test_storage_server.py
-    - name: Tests report
-      run: coverage report
+        python storageserver/test_storage_server.py
+    # - name: Tests report
+      # run: coverage report
